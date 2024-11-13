@@ -1,0 +1,7 @@
+freq/GHz,296
+edge taper, -8
+Angle_taper,11.894
+
+
+
+
