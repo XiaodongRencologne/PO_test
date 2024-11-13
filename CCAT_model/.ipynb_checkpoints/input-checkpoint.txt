@@ -1,0 +1,20 @@
+M2_sizex, 700
+M2_sizey, 710
+M1_sizex, 670
+M1_sizey, 750
+R2, 3000
+R1, 3000
+p_m2, 200
+q_m2, 200
+p_m1, 200
+q_m1, 200
+Nx_M2,101
+Ny_M2,101
+Nx_M1,101
+Ny_M1,101
+fimag_Nx,501
+fimag_Ny,501
+fimag_sizex,1000
+fimag_sizey,1000
+distance, 300
+

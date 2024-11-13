@@ -8,13 +8,13 @@ p_m2, 200
 q_m2, 200
 p_m1, 200
 q_m1, 200
-Nx_M2,15
-Ny_M2,15
-Nx_M1,15
-Ny_M1,15
-fimag_Nx,201
-fimag_Ny,201
-fimag_sizex,600
-fimag_sizey,600
+Nx_M2,101
+Ny_M2,101
+Nx_M1,101
+Ny_M1,101
+fimag_Nx,501
+fimag_Ny,501
+fimag_sizex,1000
+fimag_sizey,1000
 distance, 300
 

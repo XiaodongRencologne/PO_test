@@ -36,8 +36,8 @@ ad_m1=np.zeros((5,77));
 
 #source_field=spheical_grid(-0.005,0.005,-0.005,0.005,Ns,Ns,distance=300*10**3)
 source=Coord();
-source = spheical_grid(-0.005,0.005,-0.005,0.005,1001,201,FIELD='far',Type='uv')
-print(source.x)
+source = spheical_grid(-0.005,0.005,-0.005,0.005,1001,1001,FIELD='far',Type='uv')
+
 #np.savetxt(sourcefile+'/beam.txt',  source.x)
 #source0=np.genfromtxt(sourcefile+'/beam.txt');
 #source.x=source0[...,0];source.y=source0[...,1];source.z=source0[...,2];
@@ -47,6 +47,7 @@ Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H=field_calc
                                                                                             ad_m2,
                                                                                             ad_m1)
 Ns=int(np.sqrt(source.x.size))
+
 Sx=(Field_s_E.x.real+1j*Field_s_E.x.imag).reshape(Ns,Ns)
 Sy=(Field_s_E.y.real+1j*Field_s_E.y.imag).reshape(Ns,Ns)
 Sz=(Field_s_E.z.real+1j*Field_s_E.z.imag).reshape(Ns,Ns)
@@ -62,19 +63,19 @@ IF_z = (Field_fimag_H.z.real + 1j*Field_fimag_H.z.imag).reshape(N_IF,-1)
 outputfolder = 'output/296GHz/far_field/'
 
 fig=plt.figure(figsize=(8,7));
-plt.pcolor(20*np.log10(np.abs(Sx)));
+plt.pcolor(20*np.log10(np.abs(Sx)),cmap = 'jet');
 plt.xlabel('far-feild beam in amplitude (dB)',fontsize=18,color='darkred')
 plt.colorbar();
 plt.savefig(outputfolder + 'far_field_beam.png')
 
 fig=plt.figure(figsize=(8,7));
-plt.pcolor(20*np.log10(np.abs(Sy)));
+plt.pcolor(20*np.log10(np.abs(Sy)),cmap = 'jet');
 plt.xlabel('far-feild beam in amplitude (dB)',fontsize=18,color='darkred')
 plt.colorbar();
 plt.savefig(outputfolder + 'far_field_beam_y.png')
 
 fig=plt.figure(figsize=(8,7));
-plt.pcolor(20*np.log10(np.abs(Sz)));
+plt.pcolor(20*np.log10(np.abs(Sz)),cmap = 'jet');
 plt.xlabel('far-feild beam in amplitude (dB)',fontsize=18,color='darkred')
 plt.colorbar();
 plt.savefig(outputfolder + 'far_field_beam_z.png')
@@ -82,19 +83,19 @@ plt.savefig(outputfolder + 'far_field_beam_z.png')
 
 
 fig=plt.figure(figsize=(8,7));
-plt.pcolor(20*np.log10(np.abs(IF_x)));
+plt.pcolor(20*np.log10(np.abs(IF_x)),cmap = 'jet');
 plt.xlabel('far-feild beam in amplitude (dB)',fontsize=18,color='darkred')
 plt.colorbar();
 plt.savefig(outputfolder + 'IF_field_beam.png')
 
 fig=plt.figure(figsize=(8,7));
-plt.pcolor(20*np.log10(np.abs(IF_y)));
+plt.pcolor(20*np.log10(np.abs(IF_y)),cmap = 'jet');
 plt.xlabel('far-feild beam in amplitude (dB)',fontsize=18,color='darkred')
 plt.colorbar();
 plt.savefig(outputfolder + 'IF_field_beam_y.png')
 
 fig=plt.figure(figsize=(8,7));
-plt.pcolor(20*np.log10(np.abs(IF_z)));
+plt.pcolor(20*np.log10(np.abs(IF_z)),cmap = 'jet');
 plt.xlabel('far-feild beam in amplitude (dB)',fontsize=18,color='darkred')
 plt.colorbar();
 plt.savefig(outputfolder + 'IF_field_beam_z.png')
