@@ -243,7 +243,7 @@ def PO(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
     # output field:
     Field_E=vector();
     Field_H=vector();    
-    Je_in=scalarproduct(1,crossproduct(face1_n,Field_in_H));
+    Je_in=scalarproduct(-1,crossproduct(face1_n,Field_in_H));
     if Field_in_E==0:
         Jm_in=0;
     else:
@@ -468,10 +468,6 @@ def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
         Field_E.x,Field_E.y,Field_E.z,Field_H.x,Field_H.y,Field_H.z=calculus2(face1.x,face1.y,face1.z,face2.x,face2.y,face2.z,
                                                     face1_n.N,face1_dS,Je,Jm);
     return Field_E,Field_H;
-        
-
-    
-    
 '''testing'''
 
 

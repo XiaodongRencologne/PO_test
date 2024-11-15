@@ -48,14 +48,15 @@ Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H=field_calc
                                                                                             ad_m1)
 Ns=int(np.sqrt(source.x.size))
 
-Sx=(Field_s_E.x.real+1j*Field_s_E.x.imag).reshape(Ns,Ns)
-Sy=(Field_s_E.y.real+1j*Field_s_E.y.imag).reshape(Ns,Ns)
-Sz=(Field_s_E.z.real+1j*Field_s_E.z.imag).reshape(Ns,Ns)
+S_x=(Field_s_E.x.real+1j*Field_s_E.x.imag).reshape(Ns,Ns)
+S_y=(Field_s_E.y.real+1j*Field_s_E.y.imag).reshape(Ns,Ns)
+S_z=(Field_s_E.z.real+1j*Field_s_E.z.imag).reshape(Ns,Ns)
 
 N_IF = int(np.sqrt(Field_fimag_H.x.real.size))
-IF_x = (Field_fimag_H.x.real + 1j*Field_fimag_H.x.imag).reshape(N_IF,-1)
-IF_y = (Field_fimag_H.y.real + 1j*Field_fimag_H.y.imag).reshape(N_IF,-1)
-IF_z = (Field_fimag_H.z.real + 1j*Field_fimag_H.z.imag).reshape(N_IF,-1)
+Field_fimag_E
+IF_x = (Field_fimag_E_p.x.real + 1j*Field_fimag_E_p.x.imag).reshape(N_IF,-1)
+IF_y = (Field_fimag_E_p.y.real + 1j*Field_fimag_E_p.y.imag).reshape(N_IF,-1)
+IF_z = (Field_fimag_E_p.z.real + 1j*Field_fimag_E_p.z.imag).reshape(N_IF,-1)
 
 
 # In[9]:
@@ -110,7 +111,7 @@ np.savetxt(outputfolder +'source_field.txt',data,delimiter=',');
 # saveing data;
 data=np.concatenate((IF_x.real,IF_x.imag,IF_y.real,IF_y.imag,IF_z.real,IF_z.imag)).reshape(6,-1).T
 # saveing data;
-np.savetxt(outputfolder +'source_field.txt',data,delimiter=',');
+np.savetxt(outputfolder +'IF.txt',data,delimiter=',');
 
 
 

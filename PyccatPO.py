@@ -326,7 +326,7 @@ def field_calculation_far(inputfile,source_field,defocus,ad_m2,ad_m1):
     # 1. produce the coordinate system;
     # 2. build model;
     m2,m2_n,m2_dA,m1,m1_n,m1_dA,fimag,fimag_n,fimag_dA=model_ccat(coefficient_m2,List_m2,M2_size[0],M2_size[1],M2_N[0],M2_N[1],R2,
-                                                                  coefficient_m1,List_m1,M1_size[0],M1_size[1],M1_N[0],M2_N[1],R1,
+                                                                  coefficient_m1,List_m1,M1_size[0],M1_size[1],M1_N[0],M1_N[1],R1,
                                                                   fimag_size[0],fimag_size[1],fimag_N[0],fimag_N[1],
                                                                   ad_m2,ad_m1,p_m2,q_m2,p_m1,q_m1)
     
@@ -335,8 +335,8 @@ def field_calculation_far(inputfile,source_field,defocus,ad_m2,ad_m1):
                                                                                               m1,m1_n,m1_dA,
                                                                                               fimag,fimag_n,
                                                                                               fimag_dA,defocus,
-                                                                                              source_field,
-                                                                                              k,Angle_taper,
+                                                                                              source_field,k,
+                                                                                              Angle_taper,
                                                                                               edge_taper,Keepmatrix=False)
     
     return Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H
