@@ -243,7 +243,7 @@ def PO(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
     # output field:
     Field_E=vector();
     Field_H=vector();    
-    Je_in=scalarproduct(-1,crossproduct(face1_n,Field_in_H));
+    Je_in=scalarproduct(1,crossproduct(face1_n,Field_in_H));
     if Field_in_E==0:
         Jm_in=0;
     else:
@@ -372,7 +372,7 @@ def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
    # output field:
     Field_E=vector();
     Field_H=vector();    
-    Je_in=scalarproduct(2,crossproduct(face1_n,Field_in_H));
+    Je_in=scalarproduct(-2,crossproduct(face1_n,Field_in_H));
     if Field_in_E==0:
         Jm_in=0;
     else:
@@ -381,60 +381,58 @@ def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
     ''' calculate the field including the large matrix'''
     @njit(parallel=parallel)
     def calculus1(x1,y1,z1,x2,y2,z2,N,ds,Je): 
-        Field_E_x=np.zeros(x2.size)+1j*np.zeros(x2.size)
-        Field_E_y=np.zeros(x2.size)+1j*np.zeros(x2.size)
-        Field_E_z=np.zeros(x2.size)+1j*np.zeros(x2.size)
-        Field_H_x=np.zeros(x2.size)+1j*np.zeros(x2.size)
-        Field_H_y=np.zeros(x2.size)+1j*np.zeros(x2.size)
-        Field_H_z=np.zeros(x2.size)+1j*np.zeros(x2.size)
+        Field_E_x=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_E_y=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_E_z=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_H_x=np.zeros(x2.shape,dtype=np.complex128)
+        Field_H_y=np.zeros(x2.shape,dtype=np.complex128)
+        Field_H_z=np.zeros(x2.shape,dtype=np.complex128)
         r=np.zeros((3,1));
         rp=np.zeros((3,x1.size));
-        rp[0,...]=x1;
-        rp[1,...]=y1;
-        rp[2,...]=z1;
         for i in prange(x2.size):
             r[0,0]=x2[i]
             r[1,0]=y2[i]
             r[2,0]=z2[i]
+            rp[0,...]=x1
+            rp[1,...]=y1
+            rp[2,...]=z1
             '''calculate the vector potential Ae based on induced current'''
-            phase=k*np.sum(r*rp,axis = 0)
-            Ee=(k**2)*np.exp(1j*phase)*(Je-np.sum(Je*r,axis=0)*r);
-            Ee=np.sum(Ee*N*ds,axis=1);
+            phase=k*r*rp
+            Ee=(k**2)*np.exp(1j*phase)*(Je-np.sum(Je*r,axis=0)*r)
+            Ee=np.sum(Ee*N*ds,axis=1)
             He=(k**2)*np.exp(1j*phase)*Je
-
-            He=np.sum(He*N*ds,axis=1);
-
-            He=np.cross(r.ravel(),He);
+            He=np.sum(He*N*ds,axis=1)
+            He=np.cross(r.ravel(),He)
+            #print(He.shape)
             
-            Field_E_x[i]=-1j*Z0/(4*np.pi)*Ee[0];
-            Field_E_y[i]=-1j*Z0/(4*np.pi)*Ee[1];
-            Field_E_z[i]=-1j*Z0/(4*np.pi)*Ee[2];
+            Field_E_x[i]=-1j*Z0/(4*np.pi)*Ee[0]
+            Field_E_y[i]=-1j*Z0/(4*np.pi)*Ee[1]
+            Field_E_z[i]=-1j*Z0/(4*np.pi)*Ee[2]
 
-            Field_H_x[i]=-1j/4/np.pi*He[0];
-            Field_H_y[i]=-1j/4/np.pi*He[1];
-            Field_H_z[i]=-1j/4/np.pi*He[2];
-        return Field_E_x,Field_E_y,Field_E_z,Field_H_x,Field_H_y,Field_H_z;
+            Field_H_x[i]=-1j/4/np.pi*He[0]
+            Field_H_y[i]=-1j/4/np.pi*He[1]
+            Field_H_z[i]=-1j/4/np.pi*He[2]
+        return Field_E_x,Field_E_y,Field_E_z,Field_H_x,Field_H_y,Field_H_z
     '''Jm!=0'''
     @njit(parallel=parallel)
     def calculus2(x1,y1,z1,x2,y2,z2,N,ds,Je,Jm):
-        Field_E_x=np.zeros(x2.shape)+1j*np.zeros(x2.shape)
-        Field_E_y=np.zeros(x2.shape)+1j*np.zeros(x2.shape)
-        Field_E_z=np.zeros(x2.shape)+1j*np.zeros(x2.shape)
-        Field_H_x=np.zeros(x2.shape)+1j*np.zeros(x2.shape)
-        Field_H_y=np.zeros(x2.shape)+1j*np.zeros(x2.shape)
-        Field_H_z=np.zeros(x2.shape)+1j*np.zeros(x2.shape)
-        r=np.zeros((3,1))
-        rp=np.zeros((3,x1.size))
-        rp[0,...]=x1
-        rp[1,...]=y1
-        rp[2,...]=z1
+        Field_E_x=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_E_y=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_E_z=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_H_x=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_H_y=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        Field_H_z=np.zeros(x2.shape)+1j*np.zeros(x2.shape);
+        r=np.zeros((3,1));
+        rp=np.zeros((3,x2.size));
         for i in prange(x2.size):
             r[0,0]=x2[i]
             r[1,0]=y2[i]
             r[2,0]=z2[i]
-            
+            rp[0,...]=x1;
+            rp[1,...]=y1;
+            rp[2,...]=z1;
             '''calculate the vector potential Ae based on induced current'''
-            phase=k*np.sum(r*rp,axis = 0)
+            phase=k*r*rp;
             Ee=(k**2)*np.exp(1j*phase)*(Je-np.sum(Je*r,axis=0)*r);
             Ee=np.sum(Ee*N*ds,axis=1);
             #He=(k**2)*np.exp(1j*phase)*Je;
@@ -468,6 +466,10 @@ def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
         Field_E.x,Field_E.y,Field_E.z,Field_H.x,Field_H.y,Field_H.z=calculus2(face1.x,face1.y,face1.z,face2.x,face2.y,face2.z,
                                                     face1_n.N,face1_dS,Je,Jm);
     return Field_E,Field_H;
+        
+
+    
+    
 '''testing'''
 
 

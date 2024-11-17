@@ -8,10 +8,10 @@ p_m2, 200
 q_m2, 200
 p_m1, 200
 q_m1, 200
-Nx_M2, 201
-Ny_M2, 201
-Nx_M1, 201
-Ny_M1, 201
+Nx_M2, 21
+Ny_M2, 21
+Nx_M1, 21
+Ny_M1, 21
 fimag_Nx,501
 fimag_Ny,501
 fimag_sizex,1000

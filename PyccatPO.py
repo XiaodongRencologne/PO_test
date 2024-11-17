@@ -156,6 +156,75 @@ def model_ccat(coefficient_m2,List_m2,M2_sizex,M2_sizey,M2_Nx,M2_Ny,R2,# m2
 '''
 4. the function gives the calculation orders;
 '''
+def First_computing_far(m2,m2_n,m2_dA, # Mirror 2,
+                    m1,m1_n,m1_dA,# Mirror 1,
+                    fimag,fimag_n,fimag_dA,defocus, # imaginary focal plane,
+                    source,   # source
+                    k,Theta_max,E_taper,Keepmatrix=False): # frequency and edge taper;
+    
+    start=time.perf_counter();
+
+    angle_m2,D_m2,angle_m1,D_m1,angle_fimag,D_fimag,angle_f,D_f,angle_s,D_s=relation_coorsys(Theta_0,Ls,Lm,L_fimag,F,defocus);
+    '''
+    1. get the field on m2;
+    '''
+    # get the field on m2 and incident angle in feed coordinates;
+    
+    m2=local2global(angle_m2,D_m2,m2);
+    m2_n=local2global(angle_m2,[0,0,0],m2_n);
+    Field_m2=Complex(); # return 2
+
+    Field_m2_E,Field_m2_H=Gaussibeam(E_taper,Theta_max,k,m2,m2_n,angle_f,D_f,polarization='x');
+    
+    Field_m2_E.N=[];Field_m2_H.N=[];
+    Field_m2_E=local2global(angle_f,[0,0,0],Field_m2_E)
+    Field_m2_H=local2global(angle_f,[0,0,0],Field_m2_H)
+    '''
+    2. calculate the field on imaginary focal plane;
+    '''
+    fimag=local2global(angle_fimag,D_fimag,fimag);
+    fimag_n=local2global(angle_fimag,[0,0,0],fimag_n);
+    
+    
+    m2_n.x=-m2_n.x;m2_n.y=-m2_n.y;m2_n.z=-m2_n.z;
+    Field_m2_E=scalarproduct(2,Field_m2_E);
+    Field_m2_H=scalarproduct(2,Field_m2_H);
+    Field_fimag_E,Field_fimag_H=PO(m2,m2_n,m2_dA,fimag,0,Field_m2_H,-k);
+    
+    
+    print('2')
+    
+    '''
+    3. calculate the field on m1;
+    '''
+    print('3')
+    m1=local2global(angle_m1,D_m1,m1);
+    m1_n=local2global(angle_m1,[0,0,0],m1_n)
+    
+    Field_fimag_E=scalarproduct(1,Field_fimag_E)
+    Field_fimag_H=scalarproduct(1,Field_fimag_H)
+    Field_m1_E,Field_m1_H=PO(fimag,fimag_n,fimag_dA,m1,Field_fimag_E,Field_fimag_H,k)
+
+    #print('3')
+    '''
+    4. calculate the field in source;
+    '''
+    print('4')
+    source=local2global(angle_s,D_s,source)
+    Field_m1_E.x=np.array([0.0+1j*0.0])
+    Field_m1_E.y=np.array([0.0+1j*0.0])
+    Field_m1_E.z=np.array([0.0+1j*0.0])
+    Field_s_E,Field_s_H=PO_far(m1,m1_n,m1_dA,source,0,Field_m1_H,k)
+
+    #print('4')
+    elapsed =(time.perf_counter()-start)
+    print('time used:',elapsed)
+    
+    return Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H
+
+'''
+4. the function gives the calculation orders;
+'''
 def First_computing(m2,m2_n,m2_dA, # Mirror 2,
                     m1,m1_n,m1_dA,# Mirror 1,
                     fimag,fimag_n,fimag_dA,defocus, # imaginary focal plane,
@@ -210,11 +279,8 @@ def First_computing(m2,m2_n,m2_dA, # Mirror 2,
     4. calculate the field in source;
     '''
     #print('4')
-    source=local2global(angle_s,D_s,source);
-    Field_m1_E.x=np.array([0.0+1j*0.0])
-    Field_m1_E.y=np.array([0.0+1j*0.0])
-    Field_m1_E.z=np.array([0.0+1j*0.0])
-    Field_s_E,Field_s_H=PO(m1,m1_n,m1_dA,source,0,Field_m1_H,k);
+    source=local2global(angle_s,D_s,source)
+    Field_s_E,Field_s_H=PO(m1,m1_n,m1_dA,source,Field_m1_E,Field_m1_H,k);
 
     print('4')
     elapsed =(time.perf_counter()-start);
@@ -222,75 +288,6 @@ def First_computing(m2,m2_n,m2_dA, # Mirror 2,
     
     return Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H;
 
-'''
-4. the function gives the calculation orders;
-'''
-def First_computing_far(m2,m2_n,m2_dA, # Mirror 2,
-                    m1,m1_n,m1_dA,# Mirror 1,
-                    fimag,fimag_n,fimag_dA,defocus, # imaginary focal plane,
-                    source,   # source
-                    k,Theta_max,E_taper,Keepmatrix=False): # frequency and edge taper;
-    
-    start=time.perf_counter();
-
-    angle_m2,D_m2,angle_m1,D_m1,angle_fimag,D_fimag,angle_f,D_f,angle_s,D_s=relation_coorsys(Theta_0,Ls,Lm,L_fimag,F,defocus);
-    '''
-    1. get the field on m2;
-    '''
-    # get the field on m2 and incident angle in feed coordinates;
-    
-    m2=local2global(angle_m2,D_m2,m2);
-    m2_n=local2global(angle_m2,[0,0,0],m2_n);
-    Field_m2=Complex(); # return 2
-
-    Field_m2_E,Field_m2_H=Gaussibeam(E_taper,Theta_max,k,m2,m2_n,angle_f,D_f,polarization='x');
-    
-    Field_m2_E.N=[];Field_m2_H.N=[];
-    Field_m2_E=local2global(angle_f,[0,0,0],Field_m2_E)
-    Field_m2_H=local2global(angle_f,[0,0,0],Field_m2_H)
-    '''
-    2. calculate the field on imaginary focal plane;
-    '''
-    fimag=local2global(angle_fimag,D_fimag,fimag);
-    fimag_n=local2global(angle_fimag,[0,0,0],fimag_n);
-    
-    
-    m2_n.x=-m2_n.x;m2_n.y=-m2_n.y;m2_n.z=-m2_n.z;
-    Field_m2_E=scalarproduct(2,Field_m2_E);
-    Field_m2_H=scalarproduct(2,Field_m2_H);
-    Field_fimag_E,Field_fimag_H=PO(m2,m2_n,m2_dA,fimag,0,Field_m2_H,-k);
-    
-    
-    print('2')
-    
-    '''
-    3. calculate the field on m1;
-    '''
-    #print('3')
-    m1=local2global(angle_m1,D_m1,m1);
-    m1_n=local2global(angle_m1,[0,0,0],m1_n);
-    
-    Field_fimag_E=scalarproduct(1,Field_fimag_E);
-    Field_fimag_H=scalarproduct(1,Field_fimag_H);
-    Field_m1_E,Field_m1_H=PO(fimag,fimag_n,fimag_dA,m1,0,Field_fimag_H,k);
-    #Field_m1_E,Field_m1_H=PO(fimag,fimag_n,fimag_dA,m1,Field_fimag_E,Field_fimag_H,k);
-
-    print('3')
-    '''
-    4. calculate the field in source;
-    '''
-    #print('4')
-    source=local2global(angle_s,D_s,source);
-    Field_m1_E.x=np.array([0.0+1j*0.0])
-    Field_m1_E.y=np.array([0.0+1j*0.0])
-    Field_m1_E.z=np.array([0.0+1j*0.0])
-    Field_s_E,Field_s_H=PO_far(m1,m1_n,m1_dA,source,0,Field_m1_H,k)
-
-    print('4')
-    elapsed =(time.perf_counter()-start);
-    print('time used:',elapsed);
-    
-    return Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H;
 '''
 5. the function is the used to calculate the field
 '''
@@ -328,18 +325,18 @@ def field_calculation_far(inputfile,source_field,defocus,ad_m2,ad_m1):
     m2,m2_n,m2_dA,m1,m1_n,m1_dA,fimag,fimag_n,fimag_dA=model_ccat(coefficient_m2,List_m2,M2_size[0],M2_size[1],M2_N[0],M2_N[1],R2,
                                                                   coefficient_m1,List_m1,M1_size[0],M1_size[1],M1_N[0],M1_N[1],R1,
                                                                   fimag_size[0],fimag_size[1],fimag_N[0],fimag_N[1],
-                                                                  ad_m2,ad_m1,p_m2,q_m2,p_m1,q_m1)
+                                                                  ad_m2,ad_m1,p_m2,q_m2,p_m1,q_m1);
     
     # 3.calculate the source beam
     Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H=First_computing_far(m2,m2_n,m2_dA,
                                                                                               m1,m1_n,m1_dA,
                                                                                               fimag,fimag_n,
                                                                                               fimag_dA,defocus,
-                                                                                              source_field,k,
-                                                                                              Angle_taper,
-                                                                                              edge_taper,Keepmatrix=False)
+                                                                                              source_field,
+                                                                                              k,Angle_taper,
+                                                                                              edge_taper,Keepmatrix=False);
     
-    return Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H
+    return Field_fimag_E,Field_fimag_H,Field_m1_E,Field_m1_H,Field_s_E,Field_s_H;
     
 
 
