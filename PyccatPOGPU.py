@@ -29,7 +29,7 @@ import Kirchhoffpy;
 #from Kirchhoffpy.Kirchhoff import Complex,PO_scalar;
 from POpy1 import Complex;
 from POpyGPU import PO_GPU as PO
-from POpyGPU import PO_far;
+from POpyGPU import PO_far_GPU as PO_far;
 from POpy1 import MATRIX,crossproduct,scalarproduct
 # 1. define the guassian beam of the input feed;
 from Kirchhoffpy.Feedpy import Gaussibeam;

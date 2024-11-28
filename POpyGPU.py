@@ -507,7 +507,88 @@ def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
     return Field_E,Field_H
         
 
+def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device('cuda')):
+    # output field:
+    N_f = face2.x.size
+    Field_E=vector()
+    Field_E.x = np.zeros(N_f) + 1j*np.zeros(N_f)
+    Field_E.y = np.zeros(N_f) + 1j*np.zeros(N_f)
+    Field_E.z = np.zeros(N_f) + 1j*np.zeros(N_f)
+    Field_H=vector()
+    Field_H.x = np.zeros(N_f) + 1j*np.zeros(N_f)
+    Field_H.y = np.zeros(N_f) + 1j*np.zeros(N_f)
+    Field_H.z = np.zeros(N_f) + 1j*np.zeros(N_f)
+
+    Je_in=scalarproduct(2,crossproduct(face1_n,Field_in_H))
+    JE=T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1)).to(device)
+
+    face1.np2Tensor(device)
+    N_current = face1.x.size()[0]
+    face1_n.np2Tensor(device)
+    face2.np2Tensor(device)
+    rp = T.tensor((3,1,face1.x.size()[0]))
+    rp[0,...] = face1.x.reshape((1,-1))
+    rp[1,...] = face1.y.reshape((1,-1))
+    rp[2,...] = face1.z.reshape((1,-1))
+
+    def calcu(x2,y2,z2,Je):
+        N_points = x2.size()[0]
+        #print(N_points)
+        r = T.zeros((3,N_points,1)).to(device)
+        r[0,:,:] = x2.reshape(-1,1) 
+        r[1,:,:] = y2.reshape(-1,1)
+        r[2,:,:] = z2.reshape(-1,1)
+        phase = k*T.sum(rp*r,axis = 0)
+        Ee = (JE-T.sum(JE*r,axis = 0)*r)* np.exp(1j*phase)*k**2
+        Ee = np.sum(Ee*face1_n.N,axis=-1)*face1_dS*(-1j*Z0/4/np.pi)
+
+        F_E_x = Ee[0,...]
+        F_E_y = Ee[1,...]
+        F_E_z = Ee[2,...]
+
+        F_H_x = 0
+        F_H_y = 0
+        F_H_z = 0
+        return F_E_x,F_E_y,F_E_z,F_H_x,F_H_y,F_H_z
     
+    if device==T.device('cuda'):
+        M_all=T.cuda.get_device_properties(0).total_memory
+        M_element=Je_in.x.itemsize * Je_in.x.size * 3
+        cores=int(M_all/M_element/6)
+        print('cores:',cores)
+    else:
+        cores=os.cpu_count()*20
+        print('cores:',cores)
+    N=face2.x.nelement()
+    Ni = int(N/cores)
+    for i in tqdm(range(Ni)):
+        E_X,E_Y,E_Z,H_X,H_Y,H_Z=calcu(face2.x[i*cores:(i+1)*cores],
+                                      face2.y[i*cores:(i+1)*cores],
+                                      face2.z[i*cores:(i+1)*cores],
+                                      JE)
+        Field_E.x[i*cores:(i+1)*cores] = E_X.cpu().numpy()
+        Field_E.y[i*cores:(i+1)*cores] = E_Y.cpu().numpy()
+        Field_E.z[i*cores:(i+1)*cores] = E_Z.cpu().numpy()
+        Field_H.x[i*cores:(i+1)*cores] = H_X.cpu().numpy()
+        Field_H.y[i*cores:(i+1)*cores] = H_Y.cpu().numpy()
+        Field_H.z[i*cores:(i+1)*cores] = H_Z.cpu().numpy()
+    
+    if int(N%cores)!=0:
+        E_X,E_Y,E_Z,H_X,H_Y,H_Z=calcu(face2.x[Ni*cores:],
+                                      face2.y[Ni*cores:],
+                                      face2.z[Ni*cores:],
+                                      JE)
+        Field_E.x[Ni*cores:] = E_X.cpu().numpy()
+        Field_E.y[Ni*cores:] = E_Y.cpu().numpy()
+        Field_E.z[Ni*cores:] = E_Z.cpu().numpy()
+        Field_H.x[Ni*cores:] = H_X.cpu().numpy()
+        Field_H.y[Ni*cores:] = H_Y.cpu().numpy()
+        Field_H.z[Ni*cores:] = H_Z.cpu().numpy()
+    face1.Tensor2np()
+    face1_n.Tensor2np()
+    face2.Tensor2np()
+    T.cuda.empty_cache()    
+    return Field_E,Field_H   
     
 '''testing'''
 
