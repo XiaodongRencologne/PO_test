@@ -400,7 +400,7 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device
     def calcu(x2,y2,z2,Je):
         N_points = x2.size()[0]
         #print(N_points)
-        R = T.zeros((3,N_points,N_current)).to(device)
+        R = T.zeros((3,N_points,N_current),dtype = T.float64).to(device)
         R[0,:,:] = x2.reshape(-1,1) - face1.x.ravel()
         R[1,:,:] = y2.reshape(-1,1) - face1.y.ravel()
         R[2,:,:] = z2.reshape(-1,1) - face1.z.ravel()
@@ -416,7 +416,7 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device
         '''2'''
         he=T.exp(1j*phase)*k**2
         he1=(R*1/(r2)*(1-1j*phase))
-        he2 = T.zeros((3,N_points, N_current),dtype=T.complex64).to(device)
+        he2 = T.zeros((3,N_points, N_current),dtype=T.complex128).to(device)
 
         he2[0,...]=Je[1,...]*he1[2,...]-Je[2,...]*he1[1,...]
         he2[1,...]=Je[2,...]*he1[0,...]-Je[0,...]*he1[2,...]
@@ -520,7 +520,7 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
     Field_H.z = np.zeros(N_f) + 1j*np.zeros(N_f)
 
     Je_in=scalarproduct(2,crossproduct(face1_n,Field_in_H))
-    JE=T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1)).to(device)
+    JE=T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1),dtype = T.complex128).to(device)
 
     face1.np2Tensor(device)
     N_current = face1.x.size()[0]
