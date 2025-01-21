@@ -36,6 +36,7 @@ def read_rsf(file):
     return srf
 
 
+
 class simple_Lens():
     def __init__(self,
                  n,thickness, D,
@@ -55,23 +56,40 @@ class simple_Lens():
         self.f2_n = Coord()
         # 3D view
         # Analysis method
-        self.Analysis = None
+        self.method = None
 
-    def sampling(self,f1_N, f2_N):
+    def analysis(self,N1,N2):
+        if self.method == None:
+            print('Please define the analysis methods!!!')
+        else:
+            data = self.method()
+    def sampling(self,f1_N, f2_N,):
+        '''
+        sampling_type = 'Gaussian' / 'uniform'
+        '''
         def r1(theta):
             return np.ones(theta.shape)*self.diameter/2
         def r2(theta):
             return np.ones(theta.shape)*self.diameter/2
         x1,y1,w1 = Guass_L_quadrs_Circ(0,r1,
-                                       f1_N[0],f1_N[1],
-                                       0,2*np.pi,f1_N[2],
-                                       Phi_type='uniform')
+                                        f1_N[0],f1_N[1],
+                                        0,2*np.pi,f1_N[2],
+                                        Phi_type='uniform')
         x2,y2,w2 = Guass_L_quadrs_Circ(0,r2,
-                                       f2_N[0],f2_N[1],
-                                       0,2*np.pi,f2_N[2],
-                                       Phi_type='uniform')
-        return x1,y1,w1,x2,y2,w2
-    def view(self,f1_N,f2_N):
+                                    f2_N[0],f2_N[1],
+                                    0,2*np.pi,f2_N[2],
+                                    Phi_type='uniform')
+        z1 = self.surf_fnc1(x1,y1)
+        z2 = self.surf_fnc2(x2,y2)
+        return x1,y1,z1,w1,x2,y2,z2,w2
+    def view_sampling(self,f1_N=[21,121],f2_N=[21,121]):
+        N1 = [f1_N[0],0,f1_N[1]]
+        N2 = [f2_N[0],0,f2_N[1]]
+        self.view_1 = Coord()
+        self.view_2 = Coord()
+        self.view_1.x,self.view_1.y,self.view_1.z,self.view_1.w,\
+            self.view_2.x,self.view_2.y,self.view_1.z,self.view_2.w = self.sampling(N1,N2)
+    def view(self):
         pass
 
 

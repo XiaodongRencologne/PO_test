@@ -113,7 +113,59 @@ def Gaussibeam(Edge_taper,Edge_angle,k,Mirror_in,Mirror_n,angle,displacement,pol
         return E,H;
             
         
-    
+class Elliptical_GaussianBeam():
+    def __init__(self,
+                 Edge_taper,
+                 Edge_angle,
+                 k,
+                 coor_angle,coor_displacement,
+                 polarization='scalar'):
+        '''
+        param 1: 'Edge_taper' define ratio of maximum power and the edge power in the antenna;
+        param 2: 'Edge_angle' is the angular size of the mirror seen from the feed coordinates;
+        param 3: 'k' wave number;
+        param 4: 'Mirror_in' the sampling points in the mirror illumanited by feed;
+        param 5: 'fieldtype' chose the scalar mode or vector input field.
+        '''
+        self.Tx = Edge_taper[0]
+        self.Ty = Edge_taper[1]
+        self.Ax = Edge_angle[0]/180*np.pi
+        self.Ay = Edge_angle[1]/180*np.pi
+        
+        self.coor_A = coor_angle
+        self.coor_D = coor_displacement
+        
+        if polarization.lower()=='scalar':
+            ax = (np.log10((1+np.cos(self.Ax))/2)-self.Tx/20)/((1-np.cos(self.Ax))*np.log10(np.exp(1)))
+            by = (np.log10((1+np.cos(self.Ay))/2)-self.Ty/20)/((1-np.cos(self.Ay))*np.log10(np.exp(1)))
+
+            def beam(Mirror,Mirror_n):
+                Mirror=global2local(self.coor_A,self.coor_D,Mirror)
+                Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
+                r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
+                Amp = (1+np.cos(theta))*np.exp(-(1-np.cos(theta))*(ax*np.cos(phi)**2+by*np.sin(phi)**2))
+                F = Amp *np.exp(-1j*k*r)/r
+                cos_i=np.abs(Mirror.x*Mirror_n.x+Mirror.y*Mirror_n.y+Mirror.z*Mirror_n.z)/r
+                #E = F/np.sqrt(np.sum(np.abs(F)**2))
+                return F, cos_i
+        else:
+            ax = (np.log10((1+np.cos(self.Ax))/2)-self.Tx/20)/((1-np.cos(self.Ax))*np.log10(np.exp(1)))
+            by = (np.log10((1+np.cos(self.Ay))/2)-self.Ty/20)/((1-np.cos(self.Ay))*np.log10(np.exp(1)))
+            def beam(Mirror,Mirror_n):
+                Mirror=global2local(self.coor_A,self.coor_D,Mirror)
+                Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
+                r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
+                Amp = (1+np.cos(theta))*np.exp(-(1-np.cos(theta))*(ax*np.cos(phi)**2+by*np.sin(phi)**2))
+                F = Amp *np.exp(-1j*k*r)/r
+                co,cx,crho=CO(theta,phi);
+                if polarization.lower()=='x':
+                    E=scalarproduct(F,co)
+                    H=scalarproduct(F,cx)
+                elif polarization.lower()=='y':
+                    H=scalarproduct(F,co)
+                    E=scalarproduct(F,cx)
+                return E,H
+        self.beam = beam
   
     
     

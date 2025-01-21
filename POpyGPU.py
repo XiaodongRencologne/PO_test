@@ -591,10 +591,58 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
     return Field_E,Field_H   
     
 '''testing'''
+def lensPO(face1,face1_n,face1_dS,
+           face2,face2_n,face2_dS,
+           face3,
+           Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
+    k_n = k*n
+    # calculate the transmission and reflection on face 1.
+    f1_F_E = Field_in_E
+    f1_F_H = Field_in_H
+    F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
+                           face2,
+                           f1_F_E,f1_F_H,
+                           k_n,
+                           device = device)
+    f2_F_E = F2_in_E
+    f2_F_H = F2_in_H
+    
+    F_E,F_H = PO_GPU(face2,face2_n,face2_dS,
+                     face3,
+                     f2_F_E,f2_F_H,
+                     k,
+                     device = device)
+    return F_E,F_H
+
+def lensPO_far(face1,face1_n,face1_dS,
+           face2,face2_n,face2_dS,
+           face3,
+           Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
+    k_n = k*n
+    # calculate the transmission and reflection on face 1.
+    f1_F_E = Field_in_E
+    f1_F_H = Field_in_H
+    F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
+                           face2,
+                           f1_F_E,f1_F_H,
+                           k_n,
+                           device = device)
+    f2_F_E = F2_in_E
+    f2_F_H = F2_in_H
+    
+    F_E,F_H = PO_far_GPU(face2,face2_n,face2_dS,
+                     face3,
+                     f2_F_E,f2_F_H,
+                     k,
+                     device = device)
+    return F_E,F_H
+
+# get current
+#def get_current(source,)
 
 
 
-
+'''test'''
 
 
 def MATRIX(m1,m1_n,m1_dA,m2,Je_in,Jm_in,k):
