@@ -15,7 +15,9 @@ from .coordinate_operations import cartesian_to_spherical as cart2spher;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 
-
+mu=4*np.pi*10**(-7);
+epsilon=8.854187817*10**(-12);
+Z0=np.sqrt(mu/epsilon);
 
 # In[5]:
 class vector:
@@ -102,9 +104,9 @@ def Gaussibeam(Edge_taper,Edge_angle,k,Mirror_in,Mirror_n,angle,displacement,pol
         F=F*np.sqrt(8);
         if polarization.lower()=='x':
             E=scalarproduct(F,co);
-            H=scalarproduct(F,cx);
+            H=scalarproduct(F/Z0,cx);
         elif polarization.lower()=='y':
-            H=scalarproduct(F,co);
+            H=scalarproduct(F/Z0,co);
             E=scalarproduct(F,cx);
         '''
         else:

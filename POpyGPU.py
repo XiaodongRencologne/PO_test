@@ -7,7 +7,7 @@ from tqdm import tqdm
 import numpy as np;
 import torch as T;
 from numba import njit, prange;
-from Vopy import vector,crossproduct,scalarproduct;
+from Vopy import vector,crossproduct,scalarproduct,abs_v
 
 import copy;
 import time;
@@ -595,21 +595,21 @@ def lensPO(face1,face1_n,face1_dS,
            face2,face2_n,face2_dS,
            face3,
            Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
+    n0 = 1
     k_n = k*n
     # calculate the transmission and reflection on face 1.
-    f1_F_E = Field_in_E
-    f1_F_H = Field_in_H
+    f1_E_t,f1_E_r,f1_H_t,f1_H_r = Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
+    
     F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
                            face2,
-                           f1_F_E,f1_F_H,
+                           f1_E_t,f1_H_t,
                            k_n,
                            device = device)
-    f2_F_E = F2_in_E
-    f2_F_H = F2_in_H
     
+    f2_E_t,f2_E_r,f2_H_t,f2_H_r = Fresnel_coeffi(n,n0,face1_n,F2_in_E,F2_in_H)
     F_E,F_H = PO_GPU(face2,face2_n,face2_dS,
                      face3,
-                     f2_F_E,f2_F_H,
+                     f2_E_t,f2_H_t,
                      k,
                      device = device)
     return F_E,F_H
@@ -637,9 +637,53 @@ def lensPO_far(face1,face1_n,face1_dS,
                      device = device)
     return F_E,F_H
 
-# get current
-#def get_current(source,)
+def poyntingVector(A,B):
+    C= crossproduct(A,B)
+    A = abs_v(C)
+    
+    return C
 
+def Fresnel_coeffi(n1,n2,v_n,E,H):
+    '''
+    n1 and n2 re refractive index of material on left of the surface and right of the surface.
+    v_n is the normal vector direction from n2 to n1
+    poynting_n is the incident wave.
+    theta_i = pi - arccos(v_n * poynting_n)
+    '''
+    #calculating poynting vector
+    poynting_n = poyntingVector(E,H)
+    A_poynting_n = abs_v(poynting_n)
+    # calculation the incident angle and refractive angle
+    theta_i = dotproduct(v_n,poynting_n)/A_poynting_n
+    theta_i = T.acos(T.abs(theta_i))
+    theta_t = T.asin(n1/n2*T.sin(theta_i))
+    # define perpendicular vector, 
+    #the plane give by normal vector v_n and poynting vector is the reflection and refractive plane. 
+    # cross product of the two vector gives the vector perpendicular the reflection plane. We will use 
+    # this vector as the reference to calculate the transmission coefficient for parallel polarization 
+    # and perpendicular polarization coefficient.
+    s_n = scalarproduct(1/A_poynting_n, crossproduct(v_n,poynting_n))
+
+    a = T.cos(theta_i)
+    d = T.cos(theta_t)
+    T_s = 2*n1*a/(n1 * a + n2 * d)
+    T_p = 2*n1*a/(n2 * a + n1 * d)
+
+    R_s = (n1*a - n2*d)/(n1*a +n2*d)
+    R_p = (n2*a-n1*d)/(n2*a+n1*d)
+
+    H_s = scalarproduct(dotproduct(H,s_n),s_n)
+    H_p = sumvector(H,scalarproduct(-1,H_s))
+    H_t = sumvector(scalarproduct(T_p,H_s),scalarproduct(T_s,H_p))
+    H_r = sumvector(scalarproduct(R_p,H_s),scalarproduct(R_s,H_p))
+    
+    E_s = scalarproduct(dotproduct(E,s_n),s_n)
+    E_p = sumvector(H,scalarproduct(-1,E_s))
+    E_t = sumvector(scalarproduct(T_s,E_s),scalarproduct(T_p,E_p))
+    E_r = sumvector(scalarproduct(R_s,E_s),scalarproduct(R_p,E_p))
+    
+    return E_t,E_r,H_t,H_r
+    
 
 
 '''test'''
