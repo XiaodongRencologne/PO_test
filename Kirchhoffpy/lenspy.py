@@ -14,6 +14,9 @@ from .coordinate_operations import Coord;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 
+import pyvista as pv
+pv.set_jupyter_backend('trame')#('static')#
+
 
 # define the panel     
 def squaresample(centerx,centery,sizex,sizey,Nx,Ny,surface,r0,r1,quadrature='uniform'):
@@ -99,6 +102,16 @@ class simple_Lens():
         # 3D view
         # Analysis method
         self.method = None
+        self.widget=pv.Plotter(notebook=True)
+        _ = self.widget.add_axes(
+            line_width=5,
+            cone_radius=0.6,
+            shaft_length=0.7,
+            tip_length=0.3,
+            ambient=0.5,
+            label_size=(0.4, 0.16),
+        )
+        _ = self.widget.add_bounding_box(line_width=5, color='black')
 
     def analysis(self,N1,N2):
         if self.method == None:
@@ -139,10 +152,16 @@ class simple_Lens():
         N2 = [f2_N[0],0,f2_N[1]]
         self.view_1 = Coord()
         self.view_2 = Coord()
-        self.view_1,self.view_2, n1, n2, w1,w2 = self.sampling(N1,N2)
+        self.view_1,self.view_2, n1, n2, w1, w2 = self.sampling(N1,N2)
         
     def view(self):
-        pass
+        f1 = pv.PolyData(points1,faces1)
+        f2 = pv.PolyData(points2,faces2)
+
+        self.widget.add_mesh(f1,show_edges=True)
+        self.widget.add_mesh(f2,show_edges=True)
+        self.view_Rx()
+        self.widget.show()
 
 
 
