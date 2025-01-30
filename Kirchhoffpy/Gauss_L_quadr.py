@@ -95,18 +95,4 @@ def Guass_L_quadrs_Circ(a,r_phi,Nr_part,Nr,phi0,phi1,N_phi,Phi_type='uniform'):
         w=w*w0*(r_phi(phi)-a)*rho
 
     return rho*np.cos(phi),rho*np.sin(phi),w
-
     
-
-
-
-
-
-
-
-
-
-
-
-
-

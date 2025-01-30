@@ -55,8 +55,6 @@ def squaresample(centerx,centery,sizex,sizey,Nx,Ny,surface,r0,r1,quadrature='uni
         w = dA*Mn.N
     elif quadrature.lower()=='gaussian':
         print(1);
-    
-        
     return M,Mn,w;
 
 #%%
@@ -118,27 +116,35 @@ class simple_Lens():
             print('Please define the analysis methods!!!')
         else:
             data = self.method()
-    def sampling(self,f1_N, f2_N,):
+    def sampling(self,f1_N, f2_N, Sampling_type = 'polar',phi_type = 'uniform'):
         '''
         sampling_type = 'Gaussian' / 'uniform'
         '''
+        f1 = Coord()
+        f2 = Coord()
         def r1(theta):
             return np.ones(theta.shape)*self.diameter/2
         def r2(theta):
             return np.ones(theta.shape)*self.diameter/2
-        """
-        x1,y1,w1 = Guass_L_quadrs_Circ(0,r1,
+        if Sampling_type == 'polar':
+            f1.x, f1.y1, f1.w= Guass_L_quadrs_Circ(0,r1,
                                         f1_N[0],f1_N[1],
                                         0,2*np.pi,f1_N[2],
-                                        Phi_type='uniform')
-        x2,y2,w2 = Guass_L_quadrs_Circ(0,r2,
-                                    f2_N[0],f2_N[1],
-                                    0,2*np.pi,f2_N[2],
-                                    Phi_type='uniform')
+                                        Phi_type=phi_type)
+            f2.x, f2.y1, f2.w  = Guass_L_quadrs_Circ(0,r2,
+                                        f2_N[0],f2_N[1],
+                                        0,2*np.pi,f2_N[2],
+                                        Phi_type=phi_type)
+        elif Sampling_type = 'rectangle':
+            f1.x, f1.y1, f1.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f1_N[0],
+                                          -self.diameter/2,self.diameter/2,1,f1_N[1])
+            f2.x, f2.y1, f2.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f2_N[0],
+                                          -self.diameter/2,self.diameter/2,1,f2_N[1])
         
-        
-        z1,n1 = self.surf_fnc1(x1,y1)
-        z2,n1= self.surf_fnc2(x2,y2)
+        f1.z,f1_n = self.surf_fnc1(f1.x, f1.y1)
+        f1.z,f2_n= self.surf_fnc2(f2.x, f2.y1)
+
+        return f1,f2,f1_n,f2_n
         """
         f1,f1_n,w1 = squaresample(0,0,self.diameter,self.diameter,
                                    f1_N[0],f1_N[1],self.surf_fnc1,
@@ -147,23 +153,23 @@ class simple_Lens():
                                    f1_N[0],f1_N[1],self.surf_fnc1,
                                    0,self.diameter/2)
         return f1,f2,f1_n,f2_n,w1,w2
-    def view_sampling(self,f1_N=[101,101],f2_N=[101,101]):
-        N1 = [f1_N[0],0,f1_N[1]]
-        N2 = [f2_N[0],0,f2_N[1]]
-        self.view_1 = Coord()
-        self.view_2 = Coord()
-        self.view_1,self.view_2, n1, n2, w1, w2 = self.sampling(N1,N2)
-        
-    def view(self):
-        f1 = pv.PolyData(points1,faces1)
-        f2 = pv.PolyData(points2,faces2)
+        """
+    def view(self,N1 = 101,N2 =101):
+        if self.name+'_face1' in self.widget.actoers.keys():
+            self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
+        x1 = np.linspace(0,self.diameter/2,N1)
+        x2 = np.linspace(0,self.diameter/2,N2)
+        z1 = self.surf_fnc1(r1,0)
+        z2 = self.surf_fnc2(r2,0)
+        p1 = pv.PolyData(np.column_stack((x1,np.zeros(x1.shape),z1)))
+        p2 = pv.PolyData(np.column_stack((x2,np.zeros(x2.shape),z2)))
+        p1 = p1.delaunay_2d()
+        p2 = p2.delaunay_2d()
 
-        self.widget.add_mesh(f1,show_edges=True)
-        self.widget.add_mesh(f2,show_edges=True)
-        self.view_Rx()
+        view_face1 = p1.extrude_rotate(resolution=60)
+        view_face2 = p2.extrude_rotate(resolution=60)
+
+        self.widget.add_mesh(view_face1, color= 'lightblue' ,opacity= 0.8,name = self.name+'_face1')
+        self.widget.add_mesh(view_face2, color= 'lightblue' ,opacity= 0.8,name = self.name+'_face2')
         self.widget.show()
-
-
-
-
-#%%
+        
