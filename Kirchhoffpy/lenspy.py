@@ -5,8 +5,9 @@ Package used to build mirror model based on 'uniform sampling' and 'Gaussian qua
 
 """
 
-import numpy as np;
-import torch as T;
+import numpy as np
+import torch as T
+import scipy
 from scipy.interpolate import CubicSpline
 
 from .Gauss_L_quadr import Guass_L_quadrs_Circ
@@ -162,24 +163,33 @@ class simple_Lens():
     def view(self,N1 = 101,N2 =101):
         if self.name+'_face1' in self.widget.actors.keys():
             self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
-        x1 = np.linspace(0,self.diameter/2,N1)
-        x2 = np.linspace(0,self.diameter/2,N2)
-        z1, n1 = self.surf_fnc1(x1/10,0)
-        z2, n2 = self.surf_fnc2(x2/10,0)
-        print(z1.max(),z1.min())
-        self.z1 = z1*10 +self.coord
-        self.x1 = x1
-        self.z2 = -z2*10 +self.coord
-        self.x2 = x2
-        p1 = pv.PolyData(np.column_stack((x1,np.zeros(x1.shape),self.z1)))
-        p2 = pv.PolyData(np.column_stack((x2,np.zeros(x2.shape),self.t+self.z2)))
+        self.v_x1 = np.linspace(0,self.diameter/2,N1)
+        self.v_x2 = np.linspace(0,self.diameter/2,N2)
+        self.v_z1, self.v_n1 = self.surf_fnc1(self.v_x1/10,0)
+        self.v_z2, self.v_n2 = self.surf_fnc2(self.v_x2/10,0)
+        
+        self.v_z1 = self.v_z1*10 +self.coord[-1]
+        self.v_z2 = -self.v_z2*10 +self.coord[-1] +self.t
+        p1 = pv.PolyData(np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1)))
+        p2 = pv.PolyData(np.column_stack((self.v_x2,np.zeros(self.v_x2.shape),self.v_z2)))
         p1 = p1.delaunay_2d()
         p2 = p2.delaunay_2d()
 
         view_face1 = p1.extrude_rotate(resolution=100)
         view_face2 = p2.extrude_rotate(resolution=100)
 
-        self.widget.add_mesh(view_face1, color= 'lightblue' ,opacity= 1,name = self.name+'_face1')
+        #self.widget.add_mesh(view_face1, color= 'lightblue' ,opacity= 1,name = self.name+'_face1')
         self.widget.add_mesh(view_face2, color= 'lightblue' ,opacity= 1,name = self.name+'_face2')
+        # check surface normal vector
+        
+        cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
+        direction =  np.column_stack((self.v_n1.x,self.v_n1.y,self.v_n1.z))*20
+        self.widget.add_arrows(cent,direction,mag =1)
+        
+        cent = np.column_stack((self.v_x2,np.zeros(self.v_x2.shape),self.v_z2))
+        direction =  np.column_stack((self.v_n2.x,self.v_n2.y,self.v_n2.z))*30
+        print(direction)
+        self.widget.add_arrows(cent,-direction,mag =0.5)
+        
         #self.widget.show()
         
