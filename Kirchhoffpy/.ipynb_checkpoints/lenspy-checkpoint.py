@@ -15,6 +15,9 @@ from .coordinate_operations import Coord;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 
+from .POpyGPU import Fresnel_coeffi,poyntingVector
+from .Vopy import vector
+
 import pyvista as pv
 pv.set_jupyter_backend('trame')#('static')#
 
@@ -78,7 +81,25 @@ def read_rsf(file):
         n.z=n.z/n.N
         return z, n
     return srf
-
+def read_rsf2(file):
+    data = np.genfromtxt(file, skip_header = 2)
+    r = data[:,0]**2
+    z = data[:,1]
+    cs = CubicSpline(r,z)
+    def srf(x,y):
+        r = x**2+y**2
+        z = cs(r)
+        n = Coord()
+        # surface normal vector
+        n.z = -np.ones(x.shape)
+        n.x = cs(r,1)*2*x
+        n.y = cs(r,1)*2*y
+        n.N= np.sqrt(n.x**2+n.y**2+1)
+        n.x=n.x/n.N
+        n.y=n.y/n.N
+        n.z=n.z/n.N
+        return z, n
+    return srf
 
 
 class simple_Lens():
@@ -92,8 +113,8 @@ class simple_Lens():
         self.n = n
         self.t = thickness
         self.diameter = D
-        self.surf_fnc1 = read_rsf(surface_file1)
-        self.surf_fnc2 = read_rsf(surface_file2)
+        self.surf_fnc1 = read_rsf2(surface_file1)
+        self.surf_fnc2 = read_rsf2(surface_file2)
         self.coord = coord
 
         # define surface for sampling or for 3Dview
@@ -178,18 +199,44 @@ class simple_Lens():
         view_face1 = p1.extrude_rotate(resolution=100)
         view_face2 = p2.extrude_rotate(resolution=100)
 
-        #self.widget.add_mesh(view_face1, color= 'lightblue' ,opacity= 1,name = self.name+'_face1')
-        self.widget.add_mesh(view_face2, color= 'lightblue' ,opacity= 1,name = self.name+'_face2')
+        self.widget.add_mesh(view_face1, color= 'lightblue' ,opacity= 1,name = self.name+'_face1')
+        #self.widget.add_mesh(view_face2, color= 'lightblue' ,opacity= 1,name = self.name+'_face2')
         # check surface normal vector
         
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
-        direction =  np.column_stack((self.v_n1.x,self.v_n1.y,self.v_n1.z))*20
+        direction =  np.column_stack((self.v_n1.x,self.v_n1.y,self.v_n1.z))*10
         self.widget.add_arrows(cent,direction,mag =1)
         
+        '''
         cent = np.column_stack((self.v_x2,np.zeros(self.v_x2.shape),self.v_z2))
         direction =  np.column_stack((self.v_n2.x,self.v_n2.y,self.v_n2.z))*30
         print(direction)
         self.widget.add_arrows(cent,-direction,mag =0.5)
+        '''
         
+        E = vector()
+        E.x = np.ones(self.v_x1.shape)
+        E.y = np.zeros(self.v_x1.shape)
+        E.z = np.zeros(self.v_x1.shape)
+        E.totensor()
+
+        H = vector()
+        H.x = np.zeros(self.v_x1.shape)
+        H.y = np.ones(self.v_x1.shape)
+        H.z = np.zeros(self.v_x1.shape)
+        H.totensor()
+        k_v1 = poyntingVector(E,H)
+        cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
+        direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
+        self.widget.add_arrows(cent,direction*10,mag =1)
+        self.v_n1.np2Tensor()
+        
+        E_t,E_r,H_t,H_r = Fresnel_coeffi(3.36,1,self.v_n1,E,H)
+
+        k_v1 = poyntingVector(E_t,H_t)
+        cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
+        direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
+        self.widget.add_arrows(cent,direction*10,mag =1)
         #self.widget.show()
         
+# %%

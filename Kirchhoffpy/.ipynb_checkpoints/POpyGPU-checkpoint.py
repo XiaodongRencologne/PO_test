@@ -668,7 +668,7 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     a = T.cos(theta_i)
     d = T.cos(theta_t)
     print(a,d)
-    
+    print(n1,n2)
     T_p = 2*n1*a/(n2 * a + n1 * d)
     T_s = 2*n1*a/(n1 * a + n2 * d)
 

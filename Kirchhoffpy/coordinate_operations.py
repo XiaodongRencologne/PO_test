@@ -22,9 +22,8 @@ class Coord:
         self.y=np.array([]);
         self.z=np.array([]);
         self.N=np.array([]);
-        
 
-    def np2Tensor(self,DEVICE):
+    def np2Tensor(self,DEVICE = 'cpu'):
         '''DEVICE=T.device('cpu') or T.device('cude:0')'''
         if type(self.x).__module__ == np.__name__:
             self.x=T.tensor(self.x,dtype=T.float64).to(DEVICE).clone()

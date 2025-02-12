@@ -218,17 +218,20 @@ class simple_Lens():
         E.x = np.ones(self.v_x1.shape)
         E.y = np.zeros(self.v_x1.shape)
         E.z = np.zeros(self.v_x1.shape)
+        E.totensor()
 
         H = vector()
         H.x = np.zeros(self.v_x1.shape)
         H.y = np.ones(self.v_x1.shape)
         H.z = np.zeros(self.v_x1.shape)
+        H.totensor()
         k_v1 = poyntingVector(E,H)
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
         direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
-        self.widget.add_arrows(cent,-direction*10,mag =1)
-
-        E_t,E_r,H_t,H_r = Fresnel_coeffi(3.36,1,self.v_n1,T.tensor(E),T.tensor(H))
+        self.widget.add_arrows(cent,direction*10,mag =1)
+        self.v_n1.np2Tensor()
+        
+        E_t,E_r,H_t,H_r = Fresnel_coeffi(3.36,1,self.v_n1,E,H)
 
         k_v1 = poyntingVector(E_t,H_t)
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
