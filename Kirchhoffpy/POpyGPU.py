@@ -7,7 +7,7 @@ from tqdm import tqdm
 import numpy as np;
 import torch as T;
 from numba import njit, prange;
-from Vopy import vector,crossproduct,scalarproduct,abs_v
+from .Vopy import vector,crossproduct,scalarproduct,abs_v,dotproduct
 
 import copy;
 import time;
@@ -617,22 +617,22 @@ def lensPO(face1,face1_n,face1_dS,
 def lensPO_far(face1,face1_n,face1_dS,
            face2,face2_n,face2_dS,
            face3,
-           Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
+           Field_in_E,Field_in_H,k,n,n0,device =T.device('cuda')):
     k_n = k*n
     # calculate the transmission and reflection on face 1.
-    f1_F_E = Field_in_E
-    f1_F_H = Field_in_H
+    f1_E_t,f1_E_r,f1_H_t,f1_H_r = Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
+
     F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
                            face2,
-                           f1_F_E,f1_F_H,
+                           f1_E_t,f1_H_t,
                            k_n,
                            device = device)
-    f2_F_E = F2_in_E
-    f2_F_H = F2_in_H
     
+    f2_E_t,f2_E_r,f2_H_t,f2_H_r = Fresnel_coeffi(n,n0,face1_n,F2_in_E,F2_in_H)
+
     F_E,F_H = PO_far_GPU(face2,face2_n,face2_dS,
                      face3,
-                     f2_F_E,f2_F_H,
+                     f2_E_t,f2_H_t,
                      k,
                      device = device)
     return F_E,F_H
@@ -640,7 +640,6 @@ def lensPO_far(face1,face1_n,face1_dS,
 def poyntingVector(A,B):
     C= crossproduct(A,B)
     A = abs_v(C)
-    
     return C
 
 def Fresnel_coeffi(n1,n2,v_n,E,H):

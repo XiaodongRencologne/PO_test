@@ -7,7 +7,7 @@
 import numpy as np;
 import torch as T;
 from numba import njit, prange;
-from Vopy import vector,crossproduct,scalarproduct;
+from PO_test.Kirchhoffpy.Vopy import vector,crossproduct,scalarproduct;
 
 import copy;
 import time;

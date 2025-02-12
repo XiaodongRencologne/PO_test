@@ -15,16 +15,16 @@ import numpy as np;
 '''
 class vector():
     def __init__(self):
-        self.x=np.array([]);
-        self.y=np.array([]);
-        self.z=np.array([]);
+        self.x=np.array([])
+        self.y=np.array([])
+        self.z=np.array([])
     def tocoordsys(self,matrix=None):
         if matrix==None:
-            self.gx=self.x;
-            self.gy=self.y;
-            self.gz=self.z;
+            self.gx=self.x
+            self.gy=self.y
+            self.gz=self.z
         else:
-            data=np.matmul(matrix,np.concatenate((self.x,self.y,self.z)).reshape(3,-1));
+            data=np.matmul(matrix,np.concatenate((self.x,self.y,self.z)).reshape(3,-1))
             self.gx=data[0,...]
             self.gy=data[1,...]
             self.gz=data[2,...]
@@ -38,21 +38,43 @@ class Fvector():
         self.x=np.array([],dtype=complex);
         self.y=np.array([],dtype=complex);
         self.z=np.array([],dtype=complex);
+
 '''
 3. vector operations
-'''        
+'''
+def abs_v(A):
+    Power = A.x**2 + A.y**2 + A.z**2
+    if isinstance(A.x,np.ndarray):
+        return np.sqrt(Power)
+    elif isinstance(A.x, T.Tensor):
+        return T.sqrt(Power)
+    
 def dotproduct(A,B):
     return A.x.ravel()*B.x.ravel()+A.y.ravel()*B.y.ravel()+A.z.ravel()*B.z.ravel();
 
 def crossproduct(A,B):
-    A=np.append(np.append(A.x,A.y),A.z).reshape(3,-1).T;
-    B=np.append(np.append(B.x,B.y),B.z).reshape(3,-1).T;
-    C=np.cross(A,B);
-    D=vector();
-    D.x=C[...,0]
-    D.y=C[...,1];
-    D.z=C[...,2];
-    return D;
+    if type(A) != type(B):
+        print('Please make sure the type of two variables are same!!!')
+        return False
+    else:
+        D = vector()
+        if isinstance(A.x, np.ndarray):
+            A=np.append(np.append(A.x,A.y),A.z).reshape(3,-1).T
+            B=np.append(np.append(B.x,B.y),B.z).reshape(3,-1).T
+            C=np.cross(A,B,axisc=0)
+            D.x=C[0,:]
+            D.y=C[1,:]
+            D.z=C[2,:]
+        elif isinstance(A.x.T.Tensor):
+            A = T.cat((A.x.ravel(),A.y.ravel(),A.z.ravel())).reshape(3,-1)
+            B = T.cat((B.x.ravel(),B.y.ravel(),B.z.ravel())).reshape(3,-1)
+            C = T.cross(A,B)
+            D.x=C[0,:]
+            D.y=C[1,:]
+            D.z=C[2,:]
+        else:
+            print('The input data should be np.ndarray or T.Tensor')
+        return D
 
 def scalarproduct(k,A):
     B=vector();
