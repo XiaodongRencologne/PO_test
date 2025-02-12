@@ -16,12 +16,14 @@ from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 
 from .POpyGPU import Fresnel_coeffi,poyntingVector
-from .Vopy import vector
+from .Vopy import vector,abs_v
 
 import pyvista as pv
 pv.set_jupyter_backend('trame')#('static')#
 
-
+mu_0 = 1.25663706127*10**(−6)
+epsilon_0 = 8.8541878188(14)*10**(−12)
+Z0 = np.sqrt(mu_0/epsilon_0)
 # define the panel     
 def squaresample(centerx,centery,sizex,sizey,Nx,Ny,surface,r0,r1,quadrature='uniform'):
     centerx=np.array(centerx);
@@ -213,7 +215,10 @@ class simple_Lens():
         print(direction)
         self.widget.add_arrows(cent,-direction,mag =0.5)
         '''
-        
+        n1 = 3.36
+        Z1 = Z0/n1
+        n2 = 1
+        Z2 =Z0/n2
         E = vector()
         E.x = np.ones(self.v_x1.shape)
         E.y = np.zeros(self.v_x1.shape)
@@ -222,7 +227,7 @@ class simple_Lens():
 
         H = vector()
         H.x = np.zeros(self.v_x1.shape)
-        H.y = np.ones(self.v_x1.shape)
+        H.y = np.ones(self.v_x1.shape)/Z1
         H.z = np.zeros(self.v_x1.shape)
         H.totensor()
         k_v1 = poyntingVector(E,H)
@@ -230,8 +235,9 @@ class simple_Lens():
         direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
         self.widget.add_arrows(cent,direction*10,mag =1)
         self.v_n1.np2Tensor()
-        
-        E_t,E_r,H_t,H_r = Fresnel_coeffi(3.36,1,self.v_n1,E,H)
+
+        print('input power:', abs_v(E,E)/Z0)
+        E_t,E_r,H_t,H_r = Fresnel_coeffi(n1,n2,self.v_n1,E,H)
 
         k_v1 = poyntingVector(E_t,H_t)
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
