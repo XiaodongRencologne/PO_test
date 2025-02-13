@@ -70,7 +70,7 @@ def crossproduct(A,B):
     elif isinstance(A.x,T.Tensor):
         A = T.cat((A.x.ravel(),A.y.ravel(),A.z.ravel())).reshape(3,-1)
         B = T.cat((B.x.ravel(),B.y.ravel(),B.z.ravel())).reshape(3,-1)
-        C = T.cross(A,B)
+        C = T.cross(A,B,dim=0)
         D.x=C[0,:]
         D.y=C[1,:]
         D.z=C[2,:]

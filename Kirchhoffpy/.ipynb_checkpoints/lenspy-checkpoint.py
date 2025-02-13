@@ -15,15 +15,12 @@ from .coordinate_operations import Coord;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 
-from .POpyGPU import Fresnel_coeffi,poyntingVector
-from .Vopy import vector
+from .POpyGPU import Fresnel_coeffi,poyntingVector,Z0
+from .Vopy import vector,abs_v
 
 import pyvista as pv
 pv.set_jupyter_backend('trame')#('static')#
 
-mu_0 = 1.25663706127*10**(−6)
-epsilon_0 = 8.8541878188(14)*10**(−12)
-Z_0 = np.sqrt(mu_0/epsilon_0)
 # define the panel     
 def squaresample(centerx,centery,sizex,sizey,Nx,Ny,surface,r0,r1,quadrature='uniform'):
     centerx=np.array(centerx);
@@ -62,7 +59,11 @@ def squaresample(centerx,centery,sizex,sizey,Nx,Ny,surface,r0,r1,quadrature='uni
     elif quadrature.lower()=='gaussian':
         print(1);
     return M,Mn,w;
-
+    
+def printF(F):
+    print(F.x)
+    print(F.y)
+    print(F.z)
 #%%
 def read_rsf(file):
     data = np.genfromtxt(file, skip_header = 2)
@@ -186,15 +187,17 @@ class simple_Lens():
     def view(self,N1 = 101,N2 =101):
         if self.name+'_face1' in self.widget.actors.keys():
             self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
-        self.v_x1 = np.linspace(0,self.diameter/2,N1)
-        self.v_x2 = np.linspace(0,self.diameter/2,N2)
+        self.v_x1 = np.linspace(0,self.diameter/2,N1,dtype = np.float64)
+        self.v_x2 = np.linspace(0,self.diameter/2,N2,dtype = np.float64)
         self.v_z1, self.v_n1 = self.surf_fnc1(self.v_x1/10,0)
         self.v_z2, self.v_n2 = self.surf_fnc2(self.v_x2/10,0)
         
         self.v_z1 = self.v_z1*10 +self.coord[-1]
         self.v_z2 = -self.v_z2*10 +self.coord[-1] +self.t
-        p1 = pv.PolyData(np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1)))
-        p2 = pv.PolyData(np.column_stack((self.v_x2,np.zeros(self.v_x2.shape),self.v_z2)))
+        p1 = pv.PolyData(np.column_stack((self.v_x1,np.zeros(self.v_x1.shape,dtype = np.float64),
+                                          self.v_z1)))
+        p2 = pv.PolyData(np.column_stack((self.v_x2,np.zeros(self.v_x2.shape,dtype = np.float64),
+                                          self.v_z2)))
         p1 = p1.delaunay_2d()
         p2 = p2.delaunay_2d()
 
@@ -215,29 +218,32 @@ class simple_Lens():
         print(direction)
         self.widget.add_arrows(cent,-direction,mag =0.5)
         '''
-        n1 = 3.36
+        n1 = 1.0
         Z1 = Z0/n1
-        n2 = 1
+        n2 = 3
         Z2 =Z0/n2
         E = vector()
-        E.x = np.ones(self.v_x1.shape)
-        E.y = np.zeros(self.v_x1.shape)
-        E.z = np.zeros(self.v_x1.shape)
+        E.x = np.zeros(self.v_x1.shape,dtype = np.float64)
+        E.y = np.sqrt(Z1)*np.ones(self.v_x1.shape,dtype = np.float64)
+        E.z = np.zeros(self.v_x1.shape,dtype = np.float64)
         E.totensor()
 
         H = vector()
-        H.x = np.zeros(self.v_x1.shape)
-        H.y = np.ones(self.v_x1.shape)/Z1
-        H.z = np.zeros(self.v_x1.shape)
+        H.x = -np.sqrt(Z1)*np.ones(self.v_x1.shape,dtype = np.float64)/Z1
+        H.y = np.zeros(self.v_x1.shape,dtype = np.float64)
+        H.z = np.zeros(self.v_x1.shape,dtype = np.float64)
         H.totensor()
         k_v1 = poyntingVector(E,H)
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
         direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
         self.widget.add_arrows(cent,direction*10,mag =1)
         self.v_n1.np2Tensor()
-        
-        E_t,E_r,H_t,H_r = Fresnel_coeffi(n1,n2,self.v_n1,E,H)
 
+        #print('input power:', abs_v(E)**2/Z1)
+        E_t,E_r,H_t,H_r = Fresnel_coeffi(n1,n2,self.v_n1,E,H)
+        
+        #print('output power:', (abs_v(E_t)**2/Z2).numpy())
+        #print('reflection power:', (abs_v(E_r)**2/Z1).numpy())
         k_v1 = poyntingVector(E_t,H_t)
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
         direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))

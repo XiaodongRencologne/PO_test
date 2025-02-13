@@ -14,9 +14,7 @@ import time;
 
 mu=4*np.pi*10**(-7);
 epsilon=8.854187817*10**(-12);
-Z0=np.sqrt(mu/epsilon);
-
-
+Z0=np.sqrt(mu/epsilon,dtype = np.float64)
 # In[ ]:
 
 
@@ -642,7 +640,13 @@ def poyntingVector(A,B):
     A = abs_v(C)
     return C
 
+def printF(F):
+    print(F.x)
+    print(F.y)
+    print(F.z)
 def Fresnel_coeffi(n1,n2,v_n,E,H):
+    Z1 = Z0/n1
+    Z2 = Z0/n2
     '''
     n1 and n2 re refractive index of material on left of the surface and right of the surface.
     v_n is the normal vector direction from n2 to n1
@@ -653,42 +657,54 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     poynting_n = poyntingVector(E,H)
     A_poynting_n = abs_v(poynting_n)
     # calculation the incident angle and refractive angle
-    theta_i = dotproduct(v_n,poynting_n)/A_poynting_n
-    theta_i = T.acos(T.abs(theta_i))
-    theta_t = T.asin(n1/n2*T.sin(theta_i))
-    print(theta_i*180/T.pi)
-    print(theta_t*180/T.pi)
+    theta_i_cos = T.abs(dotproduct(v_n,poynting_n)/A_poynting_n)
+    theta_i_sin = T.sqrt(1 - theta_i_cos**2)
+    theta_t_sin = n1/n2*theta_i_sin
+    theta_t_cos = T.sqrt(1 - theta_t_sin**2)
     # define perpendicular vector, 
     #the plane give by normal vector v_n and poynting vector is the reflection and refractive plane. 
     # cross product of the two vector gives the vector perpendicular the reflection plane. We will use 
     # this vector as the reference to calculate the transmission coefficient for parallel polarization 
     # and perpendicular polarization coefficient.
-    s_n = scalarproduct(1/A_poynting_n, crossproduct(v_n,poynting_n))
-
-    a = T.cos(theta_i)
-    d = T.cos(theta_t)
-    print(a,d)
-    print(n1,n2)
+    #s_n = scalarproduct(1/A_poynting_n, crossproduct(v_n,poynting_n))
+    s_n = crossproduct(v_n,poynting_n)
+    s_n = scalarproduct(1/abs_v(s_n),s_n)
+    
+    nan_items = T.isnan(s_n.x)
+    s_n.x[nan_items] = 0.0
+    s_n.y[nan_items] = 0.0
+    s_n.z[nan_items] = 0.0
+    
+    
+    a = theta_i_cos
+    d = theta_t_cos
+    
     T_p = 2*n1*a/(n2 * a + n1 * d)
     T_s = 2*n1*a/(n1 * a + n2 * d)
 
     R_p = (n2*a - n1*d)/(n2*a + n1*d)
-    R_s = (n1*a - n2*d)/(n1*a + n2*d)
-    print('T_s:', T_s)
-    print('T_p:', T_p)
-    print('R_s:', R_s)
-    print('R_p:', R_p)    
+    R_s = (n1*a - n2*d)/(n1*a + n2*d) 
 
-    H_s = scalarproduct(dotproduct(H,s_n),s_n)
-    H_p = sumvector(H,scalarproduct(-1,H_s))
-    H_t = sumvector(scalarproduct(T_p,H_s),scalarproduct(T_s,H_p))
-    H_r = sumvector(scalarproduct(R_p,H_s),scalarproduct(R_s,H_p))
-    
+    #print(n2/n1*theta_t_cos/theta_i_cos*T_p**2 + R_p**2) 
+    #print(n2/n1*theta_t_cos/theta_i_cos*T_s**2 + R_s**2)
+
     E_s = scalarproduct(dotproduct(E,s_n),s_n)
-    E_p = sumvector(H,scalarproduct(-1,E_s))
+    E_p = sumvector(E,scalarproduct(-1,E_s)) 
+    
+    H_p = scalarproduct(dotproduct(H,s_n),s_n)
+    H_s = sumvector(H,scalarproduct(-1,H_p))
+    p_s = crossproduct(E_s,H_s)
+    p_p = crossproduct(E_p,H_p)
+    #printF(p_s)
+    #printF(p_p)
+    
     E_t = sumvector(scalarproduct(T_s,E_s),scalarproduct(T_p,E_p))
     E_r = sumvector(scalarproduct(R_s,E_s),scalarproduct(R_p,E_p))
-
+    #print((theta_t_cos*abs_v(E_t)**2/Z2 + theta_i_cos*abs_v(E_r)**2/Z1)/theta_i_cos)
+    
+    H_t = sumvector(scalarproduct(T_s,H_s),scalarproduct(T_p,H_p))
+    H_r = sumvector(scalarproduct(R_s,H_s),scalarproduct(R_p,H_p))
+    
 
     
     return E_t,E_r,H_t,H_r
