@@ -10,7 +10,7 @@ import torch as T
 import scipy
 from scipy.interpolate import CubicSpline
 
-from .Gauss_L_quadr import Guass_L_quadrs_Circ
+from .Gauss_L_quadr import Guass_L_quadrs_Circ,Gauss_L_quadrs2d
 from .coordinate_operations import Coord;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
@@ -129,6 +129,9 @@ class simple_Lens():
         # Analysis method
         self.method = None
         self.widget = widget
+
+        self.displacement = np.array([0,0,self.t])
+        self.angle = np.array([np.pi,0,0])
         '''
         self.widget=pv.Plotter(notebook=True)
         _ = self.widget.add_axes(
@@ -146,7 +149,7 @@ class simple_Lens():
             print('Please define the analysis methods!!!')
         else:
             data = self.method()
-    def sampling(self,f1_N, f2_N, Sampling_type = 'polar',phi_type = 'uniform'):
+    def sampling(self,f1_N, f2_N, Sampling_type = 'polar', phi_type = 'uniform'):
         '''
         sampling_type = 'Gaussian' / 'uniform'
         '''
@@ -157,22 +160,27 @@ class simple_Lens():
         def r2(theta):
             return np.ones(theta.shape)*self.diameter/2
         if Sampling_type == 'polar':
-            f1.x, f1.y1, f1.w= Guass_L_quadrs_Circ(0,r1,
+            f1.x, f1.y, f1.w= Guass_L_quadrs_Circ(0,r1,
                                         f1_N[0],f1_N[1],
                                         0,2*np.pi,f1_N[2],
                                         Phi_type=phi_type)
-            f2.x, f2.y1, f2.w  = Guass_L_quadrs_Circ(0,r2,
+            f2.x, f2.y, f2.w  = Guass_L_quadrs_Circ(0,r2,
                                         f2_N[0],f2_N[1],
                                         0,2*np.pi,f2_N[2],
                                         Phi_type=phi_type)
         elif Sampling_type == 'rectangle':
-            f1.x, f1.y1, f1.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f1_N[0],
+            f1.x, f1.y, f1.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f1_N[0],
                                           -self.diameter/2,self.diameter/2,1,f1_N[1])
-            f2.x, f2.y1, f2.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f2_N[0],
+            f2.x, f2.y, f2.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f2_N[0],
                                           -self.diameter/2,self.diameter/2,1,f2_N[1])
         
-        f1.z,f1_n = self.surf_fnc1(f1.x, f1.y1)
-        f1.z,f2_n= self.surf_fnc2(f2.x, f2.y1)
+        f1.z,f1_n = self.surf_fnc1(f1.x/10, f1.y/10)
+        f2.z,f2_n = self.surf_fnc2(f2.x/10, f2.y/10)
+        f1.z = f1.z*10
+        f2.z = f2.z*10
+        f2 = local2global(self.angle, self.displacement,f2)
+        f2_n = local2global(self.angle,[0,0,0],f2_n)
+        
 
         return f1,f2,f1_n,f2_n
         """
@@ -205,18 +213,18 @@ class simple_Lens():
         view_face2 = p2.extrude_rotate(resolution=100)
 
         self.widget.add_mesh(view_face1, color= 'lightblue' ,opacity= 1,name = self.name+'_face1')
-        #self.widget.add_mesh(view_face2, color= 'lightblue' ,opacity= 1,name = self.name+'_face2')
+        self.widget.add_mesh(view_face2, color= 'lightblue' ,opacity= 1,name = self.name+'_face2')
         # check surface normal vector
         
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
-        direction =  np.column_stack((self.v_n1.x,self.v_n1.y,self.v_n1.z))*10
-        self.widget.add_arrows(cent,direction,mag =1)
-        
+        direction =  np.column_stack((self.v_n1.x,self.v_n1.y,self.v_n1.z))
+        self.widget.add_arrows(cent,direction*10,mag =1)
+
         '''
         cent = np.column_stack((self.v_x2,np.zeros(self.v_x2.shape),self.v_z2))
-        direction =  np.column_stack((self.v_n2.x,self.v_n2.y,self.v_n2.z))*30
-        print(direction)
-        self.widget.add_arrows(cent,-direction,mag =0.5)
+        direction =  np.column_stack((self.v_n2.x,self.v_n2.y,self.v_n2.z))
+        self.widget.add_arrows(cent,direction*10,mag =1)
+        '''
         '''
         n1 = 1.0
         Z1 = Z0/n1
@@ -233,6 +241,7 @@ class simple_Lens():
         H.y = np.zeros(self.v_x1.shape,dtype = np.float64)
         H.z = np.zeros(self.v_x1.shape,dtype = np.float64)
         H.totensor()
+        
         k_v1 = poyntingVector(E,H)
         cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
         direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
@@ -249,5 +258,65 @@ class simple_Lens():
         direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
         self.widget.add_arrows(cent,direction*10,mag =1)
         #self.widget.show()
+        '''
+    def view2(self,N1 = [1,11,1],N2 =[1,11,1]):
+        if self.name+'_face1' in self.widget.actors.keys():
+            self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
+        f1,f2,f1_n,f2_n = self.sampling(N1, N2, Sampling_type = 'polar')
+        f1.z = f1.z + self.coord[-1]
+        f2.z = f2.z + self.coord[-1]
+        #print(self.name)
+        #print(np.acos(f1_n.z)*180/np.pi)
+        #print(np.acos(-f2_n.z)*180/np.pi)
         
+        
+        p1 = pv.PolyData(np.column_stack((f1.x,f1.y,f1.z)))
+        p2 = pv.PolyData(np.column_stack((f2.x,f2.y,f2.z)))
+        p1 = p1.delaunay_2d()
+        p2 = p2.delaunay_2d()
+        view_face1 = p1.extrude_rotate(resolution=100)
+        view_face2 = p2.extrude_rotate(resolution=100)
+
+        self.widget.add_mesh(view_face1, color= 'lightblue' ,opacity= 1,name = self.name+'_face1')
+        self.widget.add_mesh(view_face2, color= 'lightblue' ,opacity= 1,name = self.name+'_face2')
+        # check surface normal vector
+        
+        cent = np.column_stack((f1.x,f1.y,f1.z))
+        direction =  np.column_stack((f1_n.x,f1_n.y,f1_n.z))
+        self.widget.add_arrows(cent,direction*20,mag =0.5)
+        
+        cent = np.column_stack((f2.x,f2.y,f2.z))
+        direction =  np.column_stack((-f2_n.x,-f2_n.y,-f2_n.z))
+        self.widget.add_arrows(cent,direction*20,mag =0.5)
+
+    def view3(self,N1 = [11,11],N2 =[11,11]):
+        if self.name+'_face1' in self.widget.actors.keys():
+            self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
+        f1,f2,f1_n,f2_n = self.sampling(N1, N2, Sampling_type = 'rectangle')
+        f1.z = f1.z + self.coord[-1]
+        f2.z = f2.z + self.coord[-1]
+        print(self.name)
+        print((np.asin(f1_n.y)*180/np.pi).reshape(N1[0],N1[1]))
+        print((np.asin(-f2_n.y)*180/np.pi).reshape(N2[0],N2[1]))
+
+        print((np.acos(f1_n.z)*180/np.pi).reshape(N1[0],N1[1]))
+        print((np.acos(-f2_n.z)*180/np.pi).reshape(N2[0],N2[1]))
+        grid1 = pv.StructuredGrid()
+        grid1.points = np.c_[f1.x.ravel(), f1.y.ravel(), f1.z.ravel()]
+        grid1.dimensions = (N1[0], N1[1], 1)
+
+        grid2 = pv.StructuredGrid()
+        grid2.points = np.c_[f2.x.ravel(), f2.y.ravel(), f2.z.ravel()]
+        grid2.dimensions = (N2[0], N2[1], 1)
+        self.widget.add_mesh(grid1, color= 'lightblue' ,opacity= 0.5,name = self.name+'_face1',show_edges=True)
+        self.widget.add_mesh(grid2, color= 'lightblue' ,opacity= 0.5,name = self.name+'_face2',show_edges=True)
+        # check surface normal vector
+        
+        cent = np.column_stack((f1.x,f1.y,f1.z))
+        direction =  np.column_stack((f1_n.x,f1_n.y,f1_n.z))
+        self.widget.add_arrows(cent,direction*20,mag =1)
+        
+        cent = np.column_stack((f2.x,f2.y,f2.z))
+        direction =  np.column_stack((-f2_n.x,-f2_n.y,-f2_n.z))
+        self.widget.add_arrows(cent,direction*20,mag =1)
 # %%

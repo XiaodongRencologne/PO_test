@@ -45,7 +45,11 @@ def Gauss_L_quadrs2d(x0,x1,Nx_part,Nx,y0,y1,Ny_part,Ny):
 
 
 
-def Guass_L_quadrs_Circ(a,r_phi,Nr_part,Nr,phi0,phi1,N_phi,Phi_type='uniform'):
+def Guass_L_quadrs_Circ(a,r_phi,
+                        Nr_part,Nr,
+                        phi0,phi1,
+                        N_phi,
+                        Phi_type='uniform'):
     '''circular elliptical aperture, 
 
     #######
