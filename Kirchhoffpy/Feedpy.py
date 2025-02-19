@@ -150,7 +150,7 @@ class Elliptical_GaussianBeam():
                 cos_i=np.abs(Mirror.x*Mirror_n.x+Mirror.y*Mirror_n.y+Mirror.z*Mirror_n.z)/r
                 #E = F/np.sqrt(np.sum(np.abs(F)**2))
                 return F, cos_i
-        else:
+        elif polarization.lower()=='vector':
             ax = (np.log10((1+np.cos(self.Ax))/2)-self.Tx/20)/((1-np.cos(self.Ax))*np.log10(np.exp(1)))
             by = (np.log10((1+np.cos(self.Ay))/2)-self.Ty/20)/((1-np.cos(self.Ay))*np.log10(np.exp(1)))
             def beam(Mirror,Mirror_n):

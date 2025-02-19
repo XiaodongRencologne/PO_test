@@ -15,7 +15,7 @@ from .coordinate_operations import Coord;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 
-from .POpyGPU import Fresnel_coeffi,poyntingVector,Z0
+from .POpyGPU import Fresnel_coeffi,poyntingVector,Z0,lensPO,PO_GPU
 from .Vopy import vector,abs_v
 
 import pyvista as pv
@@ -60,10 +60,6 @@ def squaresample(centerx,centery,sizex,sizey,Nx,Ny,surface,r0,r1,quadrature='uni
         print(1);
     return M,Mn,w;
     
-def printF(F):
-    print(F.x)
-    print(F.y)
-    print(F.z)
 #%%
 def read_rsf(file):
     data = np.genfromtxt(file, skip_header = 2)
@@ -111,7 +107,8 @@ class simple_Lens():
                  surface_file1, surface_file2,
                  widget,
                  coord,
-                 name = 'simplelens'):
+                 name = 'simplelens',
+                 Device = T.device('cuda')):
         self.name = name
         self.n = n
         self.t = thickness
@@ -144,11 +141,21 @@ class simple_Lens():
         )
         _ = self.widget.add_bounding_box(line_width=5, color='black')
         '''
-    def analysis(self,N1,N2):
+    def analysis(self,N1,N2,f_E_in,f_H_in,
+                 sampling_type='rectangle',
+                 phi_type = 'uniform'):
         if self.method == None:
             print('Please define the analysis methods!!!')
         else:
-            data = self.method()
+            self.f1,self.f2,self.f1_n,self.f2_n = self.sampling(N1,N2,
+                                                                Sampling_type = sampling_type,
+                                                                phi_type=phi_type)
+            self.f2_E_t, self.f2_H_t = self.method(self.f1,self.f1_n,self.f1.w,
+                                                   self.f2,
+                                                   f_E_in,f_H_in,
+                                                   self.k,self.n,
+                                                   device = Device)
+            
     def sampling(self,f1_N, f2_N, Sampling_type = 'polar', phi_type = 'uniform'):
         '''
         sampling_type = 'Gaussian' / 'uniform'
@@ -169,10 +176,10 @@ class simple_Lens():
                                         0,2*np.pi,f2_N[2],
                                         Phi_type=phi_type)
         elif Sampling_type == 'rectangle':
-            f1.x, f1.y, f1.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f1_N[0],
-                                          -self.diameter/2,self.diameter/2,1,f1_N[1])
-            f2.x, f2.y, f2.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,1,f2_N[0],
-                                          -self.diameter/2,self.diameter/2,1,f2_N[1])
+            f1.x, f1.y, f1.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,f1_N[0],f1_N[1],
+                                          -self.diameter/2,self.diameter/2,f1_N[2],f1_N[3])
+            f2.x, f2.y, f2.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,f2_N[0],f2_N[1],
+                                          -self.diameter/2,self.diameter/2,f2_N[2],f2_N[3])
         
         f1.z,f1_n = self.surf_fnc1(f1.x/10, f1.y/10)
         f2.z,f2_n = self.surf_fnc2(f2.x/10, f2.y/10)
@@ -289,34 +296,42 @@ class simple_Lens():
         direction =  np.column_stack((-f2_n.x,-f2_n.y,-f2_n.z))
         self.widget.add_arrows(cent,direction*20,mag =0.5)
 
-    def view3(self,N1 = [11,11],N2 =[11,11]):
+    def view3(self,N1 = [11,1,11,1],N2 =[11,1,11,1]):
         if self.name+'_face1' in self.widget.actors.keys():
             self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
+        if self.name+'_face2' in self.widget.actors.keys():
+            self.widget.remove_actor(self.widget.actors[self.name+'_face2'])
+        if self.name+'_n1' in self.widget.actors.keys():
+            self.widget.remove_actor(self.widget.actors[self.name+'_n1'])
+        if self.name+'_n2' in self.widget.actors.keys():
+            self.widget.remove_actor(self.widget.actors[self.name+'_n2'])
         f1,f2,f1_n,f2_n = self.sampling(N1, N2, Sampling_type = 'rectangle')
         f1.z = f1.z + self.coord[-1]
         f2.z = f2.z + self.coord[-1]
+        """
         print(self.name)
-        print((np.asin(f1_n.y)*180/np.pi).reshape(N1[0],N1[1]))
-        print((np.asin(-f2_n.y)*180/np.pi).reshape(N2[0],N2[1]))
+        print((np.asin(f1_n.y)*180/np.pi).reshape(N1[0]*N1[1],N1[2]*N1[3]))
+        print((np.asin(-f2_n.y)*180/np.pi).reshape(N2[0]*N2[1],N2[2]*N2[3]))
 
-        print((np.acos(f1_n.z)*180/np.pi).reshape(N1[0],N1[1]))
-        print((np.acos(-f2_n.z)*180/np.pi).reshape(N2[0],N2[1]))
+        print((np.acos(f1_n.z)*180/np.pi).reshape(N1[0]*N1[1],N1[2]*N1[3]))
+        print((np.acos(-f2_n.z)*180/np.pi).reshape(N2[0]*N2[1],N2[2]*N2[3]))
+        """
         grid1 = pv.StructuredGrid()
         grid1.points = np.c_[f1.x.ravel(), f1.y.ravel(), f1.z.ravel()]
-        grid1.dimensions = (N1[0], N1[1], 1)
+        grid1.dimensions = (N1[0]*N1[1],N1[2]*N1[3], 1)
 
         grid2 = pv.StructuredGrid()
         grid2.points = np.c_[f2.x.ravel(), f2.y.ravel(), f2.z.ravel()]
-        grid2.dimensions = (N2[0], N2[1], 1)
+        grid2.dimensions = (N2[0]*N2[1],N2[2]*N2[3], 1)
         self.widget.add_mesh(grid1, color= 'lightblue' ,opacity= 0.5,name = self.name+'_face1',show_edges=True)
         self.widget.add_mesh(grid2, color= 'lightblue' ,opacity= 0.5,name = self.name+'_face2',show_edges=True)
         # check surface normal vector
         
         cent = np.column_stack((f1.x,f1.y,f1.z))
         direction =  np.column_stack((f1_n.x,f1_n.y,f1_n.z))
-        self.widget.add_arrows(cent,direction*20,mag =1)
+        self.widget.add_arrows(cent,direction*20,mag =1,name = self.name+'_n1')
         
         cent = np.column_stack((f2.x,f2.y,f2.z))
         direction =  np.column_stack((-f2_n.x,-f2_n.y,-f2_n.z))
-        self.widget.add_arrows(cent,direction*20,mag =1)
+        self.widget.add_arrows(cent,direction*20,mag =1,name = self.name+'_n2')
 # %%

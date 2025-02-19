@@ -590,8 +590,8 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
     
 '''testing'''
 def lensPO(face1,face1_n,face1_dS,
-           face2,face2_n,face2_dS,
-           face3,
+           face2,#face2_n,face2_dS,
+           #face3,
            Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
     n0 = 1
     k_n = k*n
@@ -605,12 +605,14 @@ def lensPO(face1,face1_n,face1_dS,
                            device = device)
     
     f2_E_t,f2_E_r,f2_H_t,f2_H_r = Fresnel_coeffi(n,n0,face1_n,F2_in_E,F2_in_H)
+    '''
     F_E,F_H = PO_GPU(face2,face2_n,face2_dS,
                      face3,
                      f2_E_t,f2_H_t,
                      k,
                      device = device)
-    return F_E,F_H
+    '''
+    return f2_E_t, f2_H_t#F_E,F_H
 
 def lensPO_far(face1,face1_n,face1_dS,
            face2,face2_n,face2_dS,
