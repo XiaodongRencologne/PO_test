@@ -15,7 +15,8 @@ from .coordinate_operations import Coord;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 
-from .POpyGPU import Fresnel_coeffi,poyntingVector,Z0,lensPO,PO_GPU
+from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO,PO_GPU
+
 from .Vopy import vector,abs_v
 
 import pyvista as pv
@@ -141,7 +142,7 @@ class simple_Lens():
         )
         _ = self.widget.add_bounding_box(line_width=5, color='black')
         '''
-    def analysis(self,N1,N2,f_E_in,f_H_in,
+    def analysis(self,N1,N2,feed,k,
                  sampling_type='rectangle',
                  phi_type = 'uniform'):
         if self.method == None:
@@ -150,11 +151,12 @@ class simple_Lens():
             self.f1,self.f2,self.f1_n,self.f2_n = self.sampling(N1,N2,
                                                                 Sampling_type = sampling_type,
                                                                 phi_type=phi_type)
-            self.f2_E_t, self.f2_H_t = self.method(self.f1,self.f1_n,self.f1.w,
-                                                   self.f2,
-                                                   f_E_in,f_H_in,
-                                                   self.k,self.n,
-                                                   device = Device)
+            self.f_E_in,self.f_H_in, E_co, E_cx = feed(self.f1,self.f1_n)
+            self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r,  self.f2_H_t , self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r = self.method(self.f1,self.f1_n,self.f1.w,
+                                                   self.f2,self.f2_n,
+                                                   self.f_E_in,self.f_H_in,
+                                                   k,self.n,
+                                                   device = T.device('cuda'))
             
     def sampling(self,f1_N, f2_N, Sampling_type = 'polar', phi_type = 'uniform'):
         '''

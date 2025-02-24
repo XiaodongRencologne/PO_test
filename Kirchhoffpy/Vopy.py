@@ -70,7 +70,11 @@ def crossproduct(A,B):
     elif isinstance(A.x,T.Tensor):
         A = T.cat((A.x.ravel(),A.y.ravel(),A.z.ravel())).reshape(3,-1)
         B = T.cat((B.x.ravel(),B.y.ravel(),B.z.ravel())).reshape(3,-1)
-        C = T.cross(A,B,dim=0)
+        if (A.dtype == T.cdouble) or (B.dtype == T.cdouble):
+            C = T.cross(A.type(T.cdouble),B.type(T.cdouble),dim=0)
+        else:
+            C = T.cross(A,B,dim=0)
+        
         D.x=C[0,:]
         D.y=C[1,:]
         D.z=C[2,:]
@@ -118,3 +122,24 @@ def sumvector(A,B):
     C.z=A.z+B.z;
     return C;    
 
+def CO(theta,phi):
+    r0=vector();
+    theta0=vector();
+    PHi0=vector();
+    r0.x=np.sin(theta)*np.cos(phi);
+    r0.y=np.sin(theta)*np.sin(phi);
+    r0.z=np.cos(theta);
+    
+    theta0.x=np.cos(theta)*np.cos(phi);
+    theta0.y=np.cos(theta)*np.sin(phi);
+    theta0.z=-np.sin(theta);
+    
+    PHi0.x=-np.sin(phi)
+    PHi0.y=np.cos(phi);
+    PHi0.z=np.zeros(phi.size);
+    
+    co=sumvector(scalarproduct(np.cos(phi),theta0),scalarproduct(-np.sin(phi),PHi0));
+    cx=sumvector(scalarproduct(np.sin(phi),theta0),scalarproduct(np.cos(phi),PHi0));
+    crho=r0;
+    
+    return co,cx,crho;

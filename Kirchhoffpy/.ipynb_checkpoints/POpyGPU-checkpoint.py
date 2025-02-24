@@ -3,7 +3,7 @@
 
 # In[1]:
 
-#from tqdm import tqdm
+from tqdm import tqdm
 import numpy as np;
 import torch as T;
 from numba import njit, prange;
@@ -11,7 +11,7 @@ from .Vopy import vector,crossproduct,scalarproduct,abs_v,dotproduct,sumvector
 
 import copy;
 import time;
-
+c=299792458;
 mu=4*np.pi*10**(-7);
 epsilon=8.854187817*10**(-12);
 Z0=np.sqrt(mu/epsilon,dtype = np.float64)
@@ -386,14 +386,17 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device
     Field_H.y = np.zeros(N_f) + 1j*np.zeros(N_f)
     Field_H.z = np.zeros(N_f) + 1j*np.zeros(N_f)
     # input field converted to surface currents
-    Je_in=scalarproduct(-2,crossproduct(face1_n,Field_in_H))
+    Je_in=scalarproduct(2,crossproduct(face1_n,Field_in_H))
     JE=T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1)).to(device)
     #del(Je_in)
-    
+    #print(face1_n.z.reshape(101,-1))
+    #print(Field_in_H.y.reshape(101,-1))
+    #print('Je:', JE[0,:].reshape(101,-1))
     face1.np2Tensor(device)
     N_current = face1.x.size()[0]
     face1_n.np2Tensor(device)
     face2.np2Tensor(device)
+    face1_dS =T.tensor(face1_dS).to(device)
     
     def calcu(x2,y2,z2,Je):
         N_points = x2.size()[0]
@@ -416,23 +419,29 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device
         he1=(R*1/(r2)*(1-1j*phase))
         he2 = T.zeros((3,N_points, N_current),dtype=T.complex128).to(device)
 
+        '''
         he2[0,...]=Je[1,...]*he1[2,...]-Je[2,...]*he1[1,...]
         he2[1,...]=Je[2,...]*he1[0,...]-Je[0,...]*he1[2,...]
         he2[2,...]=Je[0,...]*he1[1,...]-Je[1,...]*he1[0,...]
+        '''
 
+        he2 = T.cross(Je, he1,dim=0)
+
+
+        
         He=T.sum(he*he2*face1_n.N*face1_dS,axis=-1)
 
-        F_E_x=Z0/(4*np.pi)*Ee[0,...]
-        F_E_y=Z0/(4*np.pi)*Ee[1,...]
-        F_E_z=Z0/(4*np.pi)*Ee[2,...]
+        F_E_x=1/(4*np.pi)*Ee[0,...]
+        F_E_y=1/(4*np.pi)*Ee[1,...]
+        F_E_z=1/(4*np.pi)*Ee[2,...]
         
-        F_H_x=1/4/np.pi*He[0,...]
-        F_H_y=1/4/np.pi*He[1,...]
-        F_H_z=1/4/np.pi*He[2,...]
+        F_H_x=1/4/np.pi*He[0,...]/Z0
+        F_H_y=1/4/np.pi*He[1,...]/Z0
+        F_H_z=1/4/np.pi*He[2,...]/Z0
         return F_E_x,F_E_y,F_E_z,F_H_x,F_H_y,F_H_z
     if device==T.device('cuda'):
         M_all=T.cuda.get_device_properties(0).total_memory
-        M_element=Je_in.x.itemsize * Je_in.x.size * 3
+        M_element=Je_in.x.itemsize * Je_in.x.size * 4
         cores=int(M_all/M_element/6)
         print('cores:',cores)
     else:
@@ -588,132 +597,7 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
     T.cuda.empty_cache()    
     return Field_E,Field_H   
     
-'''testing'''
-def lensPO(face1,face1_n,face1_dS,
-           face2,#face2_n,face2_dS,
-           #face3,
-           Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
-    n0 = 1
-    k_n = k*n
-    # calculate the transmission and reflection on face 1.
-    f1_E_t,f1_E_r,f1_H_t,f1_H_r = Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
-    
-    F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
-                           face2,
-                           f1_E_t,f1_H_t,
-                           k_n,
-                           device = device)
-    
-    f2_E_t,f2_E_r,f2_H_t,f2_H_r = Fresnel_coeffi(n,n0,face1_n,F2_in_E,F2_in_H)
-    '''
-    F_E,F_H = PO_GPU(face2,face2_n,face2_dS,
-                     face3,
-                     f2_E_t,f2_H_t,
-                     k,
-                     device = device)
-    '''
-    return f2_E_t, f2_H_t#F_E,F_H
 
-def lensPO_far(face1,face1_n,face1_dS,
-           face2,face2_n,face2_dS,
-           face3,
-           Field_in_E,Field_in_H,k,n,n0,device =T.device('cuda')):
-    k_n = k*n
-    # calculate the transmission and reflection on face 1.
-    f1_E_t,f1_E_r,f1_H_t,f1_H_r = Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
-
-    F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
-                           face2,
-                           f1_E_t,f1_H_t,
-                           k_n,
-                           device = device)
-    
-    f2_E_t,f2_E_r,f2_H_t,f2_H_r = Fresnel_coeffi(n,n0,face1_n,F2_in_E,F2_in_H)
-
-    F_E,F_H = PO_far_GPU(face2,face2_n,face2_dS,
-                     face3,
-                     f2_E_t,f2_H_t,
-                     k,
-                     device = device)
-    return F_E,F_H
-
-def poyntingVector(A,B):
-    C= crossproduct(A,B)
-    A = abs_v(C)
-    return C
-
-def printF(F):
-    print(F.x)
-    print(F.y)
-    print(F.z)
-def Fresnel_coeffi(n1,n2,v_n,E,H):
-    Z1 = Z0/n1
-    Z2 = Z0/n2
-    '''
-    n1 and n2 re refractive index of material on left of the surface and right of the surface.
-    v_n is the normal vector direction from n2 to n1
-    poynting_n is the incident wave.
-    theta_i = pi - arccos(v_n * poynting_n)
-    '''
-    #calculating poynting vector
-    poynting_n = poyntingVector(E,H)
-    A_poynting_n = abs_v(poynting_n)
-    # calculation the incident angle and refractive angle
-    theta_i_cos = T.abs(dotproduct(v_n,poynting_n)/A_poynting_n)
-    theta_i_sin = T.sqrt(1 - theta_i_cos**2)
-    theta_t_sin = n1/n2*theta_i_sin
-    theta_t_cos = T.sqrt(1 - theta_t_sin**2)
-    # define perpendicular vector, 
-    #the plane give by normal vector v_n and poynting vector is the reflection and refractive plane. 
-    # cross product of the two vector gives the vector perpendicular the reflection plane. We will use 
-    # this vector as the reference to calculate the transmission coefficient for parallel polarization 
-    # and perpendicular polarization coefficient.
-    #s_n = scalarproduct(1/A_poynting_n, crossproduct(v_n,poynting_n))
-    s_n = crossproduct(v_n,poynting_n)
-    s_n = scalarproduct(1/abs_v(s_n),s_n)
-    
-    nan_items = T.isnan(s_n.x)
-    s_n.x[nan_items] = 0.0
-    s_n.y[nan_items] = 0.0
-    s_n.z[nan_items] = 0.0
-    
-    
-    a = theta_i_cos
-    d = theta_t_cos
-    
-    T_p = 2*n1*a/(n2 * a + n1 * d)
-    T_s = 2*n1*a/(n1 * a + n2 * d)
-
-    R_p = (n2*a - n1*d)/(n2*a + n1*d)
-    R_s = (n1*a - n2*d)/(n1*a + n2*d) 
-
-    #print(n2/n1*theta_t_cos/theta_i_cos*T_p**2 + R_p**2) 
-    #print(n2/n1*theta_t_cos/theta_i_cos*T_s**2 + R_s**2)
-
-    E_s = scalarproduct(dotproduct(E,s_n),s_n)
-    E_p = sumvector(E,scalarproduct(-1,E_s)) 
-    
-    H_p = scalarproduct(dotproduct(H,s_n),s_n)
-    H_s = sumvector(H,scalarproduct(-1,H_p))
-    p_s = crossproduct(E_s,H_s)
-    p_p = crossproduct(E_p,H_p)
-    #printF(p_s)
-    #printF(p_p)
-    
-    E_t = sumvector(scalarproduct(T_s,E_s),scalarproduct(T_p,E_p))
-    E_r = sumvector(scalarproduct(R_s,E_s),scalarproduct(R_p,E_p))
-    #print((theta_t_cos*abs_v(E_t)**2/Z2 + theta_i_cos*abs_v(E_r)**2/Z1)/theta_i_cos)
-    
-    H_t = sumvector(scalarproduct(T_s,H_s),scalarproduct(T_p,H_p))
-    H_r = sumvector(scalarproduct(R_s,H_s),scalarproduct(R_p,H_p))
-    
-
-    
-    return E_t,E_r,H_t,H_r
-    
-
-
-'''test'''
 
 
 def MATRIX(m1,m1_n,m1_dA,m2,Je_in,Jm_in,k):
