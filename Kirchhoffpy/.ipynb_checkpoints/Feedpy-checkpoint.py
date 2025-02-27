@@ -161,7 +161,8 @@ class Elliptical_GaussianBeam():
                 R_x = Mirror.z*(1+(bx/Mirror.z)**2)
                 #R_y = Mirror.z*(1+(by/Mirror.z)**2)
                 Amp = Amp_x*Amp_y
-                F = Amp * np.exp(-1j*(k*(Mirror.x**2+Mirror.y**2)/2/R_x + k*Mirror.z - np.arctan(Mirror.z/bx)/2 - np.arctan(Mirror.z/by)/2))
+                F = Amp * np.exp(-1j*(k*(Mirror.x**2+Mirror.y**2)/2/R_x \
+                                      + k*Mirror.z - np.arctan(Mirror.z/bx)/2 - np.arctan(Mirror.z/by)/2))
                 cos_i=np.abs(Mirror.x*Mirror_n.x+Mirror.y*Mirror_n.y+Mirror.z*Mirror_n.z)/r
                 #E = F/np.sqrt(np.sum(np.abs(F)**2))
                 return F, cos_i

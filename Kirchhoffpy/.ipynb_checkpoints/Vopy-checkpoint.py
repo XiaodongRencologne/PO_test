@@ -6,6 +6,7 @@
 
 import numpy as np;
 import torch as T
+import copy
 
 
 # In[ ]:
@@ -109,7 +110,7 @@ def crossproduct(A,B):
         return D
 """
 def scalarproduct(k,A):
-    B=vector();
+    B=copy.copy(A)
     B.x=k*A.x;
     B.y=k*A.y;
     B.z=k*A.z;    

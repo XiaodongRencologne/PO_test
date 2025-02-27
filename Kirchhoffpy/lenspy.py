@@ -17,7 +17,7 @@ from .coordinate_operations import Transform_global2local as global2local;
 
 from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO,PO_GPU
 
-from .Vopy import vector,abs_v
+from .Vopy import vector,abs_v,scalarproduct
 
 import pyvista as pv
 pv.set_jupyter_backend('trame')#('static')#
@@ -128,8 +128,8 @@ class simple_Lens():
         self.method = None
         self.widget = widget
 
-        self.displacement = np.array([0,0,self.t])
-        self.angle = np.array([np.pi,0,0])
+        ## coordinate system of the two surfaces of the lens.
+
         '''
         self.widget=pv.Plotter(notebook=True)
         _ = self.widget.add_axes(
@@ -143,64 +143,57 @@ class simple_Lens():
         _ = self.widget.add_bounding_box(line_width=5, color='black')
         '''
     def analysis(self,N1,N2,feed,k,
-                 sampling_type='rectangle',
-                 phi_type = 'uniform'):
+                 sampling_type_f1='rectangle',
+                 phi_type_f1 = 'uniform',
+                 sampling_type_f2='rectangle',
+                 phi_type_f2 = 'uniform',):
         if self.method == None:
             print('Please define the analysis methods!!!')
         else:
-            self.f1,self.f2,self.f1_n,self.f2_n = self.sampling(N1,N2,
-                                                                Sampling_type = sampling_type,
-                                                                phi_type=phi_type)
+            self.f1,self.f1_n = self.sampling(N1,self.surf_fnc1,self.r1,
+                                              Sampling_type = sampling_type_f1,
+                                              phi_type=phi_type_f1)
+            self.f1_n =scalarproduct(-1,self.f1_n)
+            
+            self.f2,self.f2_n = self.sampling(N2,self.surf_fnc2,self.r2,
+                                             Sampling_type = sampling_type_f2,
+                                             phi_type=phi_type_f2)
+            self.f2 = local2global([np.pi,0,0], [0,0,self.t],self.f2)
+            self.f2_n = local2global([np.pi,0,0],[0,0,0],self.f2_n)
+            
             self.f_E_in,self.f_H_in, E_co, E_cx = feed(self.f1,self.f1_n)
+            
             self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r,  self.f2_H_t , self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r = self.method(self.f1,self.f1_n,self.f1.w,
                                                    self.f2,self.f2_n,
                                                    self.f_E_in,self.f_H_in,
                                                    k,self.n,
                                                    device = T.device('cuda'))
             
-    def sampling(self,f1_N, f2_N, Sampling_type = 'polar', phi_type = 'uniform'):
+    def sampling(self, f1_N, surf_fuc,r1,r0=0,Sampling_type = 'polar', phi_type = 'uniform'):
         '''
         sampling_type = 'Gaussian' / 'uniform'
         '''
         f1 = Coord()
-        f2 = Coord()
-        def r1(theta):
-            return np.ones(theta.shape)*self.diameter/2
-        def r2(theta):
-            return np.ones(theta.shape)*self.diameter/2
+        #f2 = Coord()
+
         if Sampling_type == 'polar':
             f1.x, f1.y, f1.w= Guass_L_quadrs_Circ(0,r1,
                                         f1_N[0],f1_N[1],
                                         0,2*np.pi,f1_N[2],
                                         Phi_type=phi_type)
-            f2.x, f2.y, f2.w  = Guass_L_quadrs_Circ(0,r2,
-                                        f2_N[0],f2_N[1],
-                                        0,2*np.pi,f2_N[2],
-                                        Phi_type=phi_type)
         elif Sampling_type == 'rectangle':
             f1.x, f1.y, f1.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,f1_N[0],f1_N[1],
                                           -self.diameter/2,self.diameter/2,f1_N[2],f1_N[3])
-            f2.x, f2.y, f2.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,f2_N[0],f2_N[1],
-                                          -self.diameter/2,self.diameter/2,f2_N[2],f2_N[3])
+            NN = np.where((f1.x**2+f1.y**2)>(self.diameter/2)**2)
+            Masker = np.ones(f1.x.shape)
+            Masker[NN] =0.0
+            f1.w = f1.w*Masker
         
-        f1.z,f1_n = self.surf_fnc1(f1.x/10, f1.y/10)
-        f2.z,f2_n = self.surf_fnc2(f2.x/10, f2.y/10)
+        f1.z,f1_n = surf_fuc(f1.x/10, f1.y/10)
         f1.z = f1.z*10
-        f2.z = f2.z*10
-        f2 = local2global(self.angle, self.displacement,f2)
-        f2_n = local2global(self.angle,[0,0,0],f2_n)
-        
 
-        return f1,f2,f1_n,f2_n
-        """
-        f1,f1_n,w1 = squaresample(0,0,self.diameter,self.diameter,
-                                   f1_N[0],f1_N[1],self.surf_fnc1,
-                                   0,self.diameter/2)
-        f2,f2_n,w2 = squaresample(0,0,self.diameter,self.diameter,
-                                   f1_N[0],f1_N[1],self.surf_fnc1,
-                                   0,self.diameter/2)
-        return f1,f2,f1_n,f2_n,w1,w2
-        """
+        return f1,f1_n
+
     def view(self,N1 = 101,N2 =101):
         if self.name+'_face1' in self.widget.actors.keys():
             self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
@@ -336,4 +329,9 @@ class simple_Lens():
         cent = np.column_stack((f2.x,f2.y,f2.z))
         direction =  np.column_stack((-f2_n.x,-f2_n.y,-f2_n.z))
         self.widget.add_arrows(cent,direction*20,mag =1,name = self.name+'_n2')
+        
+    def r1(self,theta):
+        return np.ones(theta.shape)*self.diameter/2
+    def r2(self,theta):
+            return np.ones(theta.shape)*self.diameter/2
 # %%

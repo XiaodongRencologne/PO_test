@@ -426,9 +426,7 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device
         '''
 
         he2 = T.cross(Je, he1,dim=0)
-
-
-        
+        del(he1)
         He=T.sum(he*he2*face1_n.N*face1_dS,axis=-1)
 
         F_E_x=1/(4*np.pi)*Ee[0,...]
