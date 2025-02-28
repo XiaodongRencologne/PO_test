@@ -53,24 +53,6 @@ def lensPO(face1,face1_n,face1_dS,
     
     #printF(p_n2)
     '''
-    f2_E_t.x = np.nan_to_num(f2_E_t.x)
-    f2_E_t.y = np.nan_to_num(f2_E_t.y)
-    f2_E_t.z = np.nan_to_num(f2_E_t.z)
-    
-    f2_E_r.x = np.nan_to_num(f2_E_r.x)
-    f2_E_r.y = np.nan_to_num(f2_E_r.y)
-    f2_E_r.z = np.nan_to_num(f2_E_r.z)
-    
-    f2_H_t.x = np.nan_to_num(f2_H_t.x)
-    f2_H_t.y = np.nan_to_num(f2_H_t.y)
-    f2_H_t.z = np.nan_to_num(f2_H_t.z)
-    
-    f2_H_r.x = np.nan_to_num(f2_H_r.x)
-    f2_H_r.y = np.nan_to_num(f2_H_r.y)
-    f2_H_r.z = np.nan_to_num(f2_H_r.z)
-    
-    '''
-    '''
     F_E,F_H = PO_GPU(face2,face2_n,face2_dS,
                      face3,
                      f2_E_t,f2_H_t,
@@ -147,6 +129,7 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     theta_t_sin = n1/n2*theta_i_sin
     #print(theta_t_sin)
     NN_r = np.where(np.abs(theta_t_sin)>=1.0) # total reflection point
+    theta_t_sin[NN_r] =1.0
     theta_t_cos = np.sqrt(1 - theta_t_sin**2)
     # define perpendicular vector, 
     #the plane give by normal vector v_n and poynting vector is the reflection and refractive plane. 

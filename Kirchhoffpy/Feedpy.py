@@ -61,6 +61,64 @@ def Normal_factor(theta_x_2,theta_y_2):
 Type 1: Gaussian beam;
 '''
 
+class GaussiBeam():
+    def __init__(self,
+                 Edge_taper,
+                 Edge_angle,
+                 k,
+                 coor_angle,coor_displacement,
+                 polarization='scalar'):
+        
+        self.T = Edge_taper
+        self.A = Edge_angle/180*np.pi
+        
+        self.coor_A = coor_angle
+        self.coor_D = coor_displacement
+
+        b = (np.log10((1+np.cos(self.A))/2)-self.T/20)/(k*(1-np.cos(self.A))*np.log10(np.exp(1)))
+        w_2 = 2/k*(20*np.log10((1+np.cos(self.A))/2)-self.T)/(20*k*(1-np.cos(self.A))*np.log10(np.exp(1)))
+        b = k*w_2/2
+        w = np.sqrt(w_2)
+        theta_2 = -20*self.A**2/self.T*np.log10(np.exp(1))
+        
+        if polarization.lower()=='scalar':
+            def beam(Mirror,Mirror_n):
+                Mirror=global2local(self.coor_A,self.coor_D,Mirror)
+                Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
+                r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
+                R=np.sqrt(r**2-b**2+1j*2*b*Mirror_in.z)
+                E=np.exp(-1j*k*R-k*b)/R*(1+np.cos(theta))/2/k/w0*b
+                E=E*np.sqrt(8)
+                cos_i=np.abs(Mirror.x*Mirror_n.x+Mirror.y*Mirror_n.y+Mirror.z*Mirror_n.z)/r;
+                return E.real,E.imag,cos_i;
+        else: 
+            P = 2*np.pi*(np.sinh(2*k*b)*(1/2/k/b-2/(2*k*b)**2 + 2/(2*k*b)**3)+np.cosh(2*k*b)*(2/(2*k*b)**2-2/(2*k*b)**3))
+            Nf = np.sqrt(4*np.pi/P)
+            def beam(Mirror,Mirror_n):
+                Mirror=global2local(self.coor_A,self.coor_D,Mirror)
+                Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
+                r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
+                F = (1+np.cos(theta)) * np.exp(k*b*np.cos(theta)) * np.exp(-1j*k*r)/k/r
+                F = Nf*F
+                
+                E = vector()
+                H = vector()
+                co,cx,crho=CO(theta,phi)
+                if polarization.lower()=='x':
+                    E=scalarproduct(F,co)
+                    H=scalarproduct(F/Z0,cx)
+                    E_co = F #dotproduct(E,co)
+                    E_cx = 0.0 #dotproduct(E,cx)
+                    E_r  = 0.0 #dotproduct(E,crho)
+                elif polarization.lower()=='y':
+                    H=scalarproduct(F/Z0,co)
+                    E=scalarproduct(F,cx)
+                    E_co = 0.0 #dotproduct(E,co)
+                    E_cx = F #dotproduct(E,cx)
+                    E_r  = 0.0 #dotproduct(E,crho)
+                return E, H , E_co , E_cx
+        self.beam = beam
+
 def Gaussibeam(Edge_taper,Edge_angle,k,Mirror_in,Mirror_n,angle,displacement,polarization='scalar'):
     '''
     param 1: 'Edge_taper' define ratio of maximum power and the edge power in the antenna;
@@ -140,15 +198,14 @@ class Elliptical_GaussianBeam():
         by = k*wy_2/2
         wx = np.sqrt(wx_2)
         wy = np.sqrt(wy_2)
-        print(bx,by)
-        print(wx,wy)
+        #print(bx,by)
+        #print(wx,wy)
         print(2/k/wx*180/np.pi,2/k/wy*180/np.pi)
         theta_x_2 = -20*self.Ax**2/self.Tx*np.log10(np.exp(1))
         theta_y_2 = -20*self.Ay**2/self.Ty*np.log10(np.exp(1))
         print(np.sqrt(theta_x_2)*180/np.pi,np.sqrt(theta_y_2)*180/np.pi)
         Nf = Normal_factor(theta_x_2 ,theta_y_2)
         if polarization.lower()=='scalar':
-            
             def beam(Mirror,Mirror_n):
                 Mirror=global2local(self.coor_A,self.coor_D,Mirror)
                 Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
@@ -171,7 +228,6 @@ class Elliptical_GaussianBeam():
                 Mirror=global2local(self.coor_A,self.coor_D,Mirror)
                 Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
                 r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
-                
                 F = Nf*Gaussian2d(theta_x_2 ,theta_y_2, theta, phi) * np.exp(-1j*k*r)/r
                 E = vector()
                 H = vector()
@@ -180,15 +236,14 @@ class Elliptical_GaussianBeam():
                 if polarization.lower()=='x':
                     E=scalarproduct(F,co);
                     H=scalarproduct(F/Z0,cx);
-                    E_co = dotproduct(E,co)
-                    E_cx = dotproduct(E,cx)
-                    #E_r  = dotproduct(E,crho)
-                    #E=scalarproduct(F,co)
-                    #H=scalarproduct(F/Z0,cx)
+                    E_co = F#dotproduct(E,co)
+                    E_cx = 0#dotproduct(E,cx)
+                    E_r  = 0#dotproduct(E,crho)
                 elif polarization.lower()=='y':
-                    pass
-                    #H=scalarproduct(F/Z0,co)
-                    #E=scalarproduct(F,cx)
+                    H=scalarproduct(F/Z0,co)
+                    E=scalarproduct(F,cx)
+                    E_co = 0#dotproduct(E,co)
+                    E_cx = F#dotproduct(E,cx)
+                    E_r  = 0#dotproduct(E,crho)
                 return E, H , E_co , E_cx
         self.beam = beam
-

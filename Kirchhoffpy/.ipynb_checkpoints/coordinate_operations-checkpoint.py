@@ -11,6 +11,7 @@ The package provides a few functions used to realsize coordinates translations
 import numpy as np;
 import torch as T;
 import transforms3d;
+import copy
 
 
 # In[2]:
@@ -69,7 +70,8 @@ def Transform_local2global (angle,displacement,local):
     mat=np.transpose(mat);
     G=np.matmul(mat,L);   
     G=G+displacement.reshape(-1,1);
-    g=Coord();
+    #g=Coord();
+    g = copy.copy(local)
     g.x=G[0,...];
     g.y=G[1,...];
     g.z=G[2,...];
@@ -83,7 +85,8 @@ def Transform_global2local (angle,displacement,G):
     mat=transforms3d.euler.euler2mat(-angle[0],-angle[1],-angle[2]);
     
     local=np.matmul(mat,g);      
-    l=Coord();
+    #l=Coord();
+    l = copy.copy(G)
     l.x=local[0,...];
     l.y=local[1,...];
     l.z=local[2,...];

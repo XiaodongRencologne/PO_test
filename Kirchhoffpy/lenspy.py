@@ -62,11 +62,17 @@ def squaresample(centerx,centery,sizex,sizey,Nx,Ny,surface,r0,r1,quadrature='uni
     return M,Mn,w;
     
 #%%
-def read_rsf(file):
+def read_rsf(file,units= 'cm'):
+    factor= 1.0
+    if units == 'cm':
+        factor = 10
+    elif units == 'm':
+        factor = 1000
     data = np.genfromtxt(file, skip_header = 2)
-    r = data[:,0]
-    z = data[:,1]
+    r = data[:,0]*factor
+    z = data[:,1]*factor
     cs = CubicSpline(r,z)
+    
     def srf(x,y):
         r = np.sqrt(x**2+y**2)
         z = cs(r)
@@ -81,11 +87,21 @@ def read_rsf(file):
         n.z=n.z/n.N
         return z, n
     return srf
-def read_rsf2(file):
+def read_rsf2(file,units= 'cm'):
+    factor= 1.0
+    if units == 'cm':
+        factor = 10
+    elif units == 'm':
+        factor = 1000
     data = np.genfromtxt(file, skip_header = 2)
-    r = data[:,0]**2
-    z = data[:,1]
+    r = data[:,0]**2*factor**2
+    z = data[:,1]*factor
     cs = CubicSpline(r,z)
+    factor= 1.0
+    if units == 'cm':
+        factor = 10
+    elif units == 'm':
+        factor = 1000
     def srf(x,y):
         r = x**2+y**2
         z = cs(r)
@@ -114,8 +130,8 @@ class simple_Lens():
         self.n = n
         self.t = thickness
         self.diameter = D
-        self.surf_fnc1 = read_rsf2(surface_file1)
-        self.surf_fnc2 = read_rsf2(surface_file2)
+        self.surf_fnc1 = read_rsf2(surface_file1,units= 'cm')
+        self.surf_fnc2 = read_rsf2(surface_file2,units= 'cm')
         self.coord = coord
 
         # define surface for sampling or for 3Dview
@@ -153,17 +169,20 @@ class simple_Lens():
             self.f1,self.f1_n = self.sampling(N1,self.surf_fnc1,self.r1,
                                               Sampling_type = sampling_type_f1,
                                               phi_type=phi_type_f1)
+            
             self.f1_n =scalarproduct(-1,self.f1_n)
             
             self.f2,self.f2_n = self.sampling(N2,self.surf_fnc2,self.r2,
                                              Sampling_type = sampling_type_f2,
                                              phi_type=phi_type_f2)
+            
             self.f2 = local2global([np.pi,0,0], [0,0,self.t],self.f2)
             self.f2_n = local2global([np.pi,0,0],[0,0,0],self.f2_n)
             
             self.f_E_in,self.f_H_in, E_co, E_cx = feed(self.f1,self.f1_n)
             
-            self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r,  self.f2_H_t , self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r = self.method(self.f1,self.f1_n,self.f1.w,
+            self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
+            self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r = self.method(self.f1,self.f1_n,self.f1.w,
                                                    self.f2,self.f2_n,
                                                    self.f_E_in,self.f_H_in,
                                                    k,self.n,
@@ -188,9 +207,9 @@ class simple_Lens():
             Masker = np.ones(f1.x.shape)
             Masker[NN] =0.0
             f1.w = f1.w*Masker
+            f1.masker = Masker
         
-        f1.z,f1_n = surf_fuc(f1.x/10, f1.y/10)
-        f1.z = f1.z*10
+        f1.z,f1_n = surf_fuc(f1.x, f1.y)
 
         return f1,f1_n
 
