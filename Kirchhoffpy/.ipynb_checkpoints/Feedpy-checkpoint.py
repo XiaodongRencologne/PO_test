@@ -98,9 +98,10 @@ class GaussiBeam():
                 Mirror=global2local(self.coor_A,self.coor_D,Mirror)
                 Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
                 r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
+                print('Gain of the Guassian feedhonr!')
+                print(np.log10(Nf*((1+np.cos(theta)) * np.exp(k*b*np.cos(theta))).max())*20,'dB')
                 F = (1+np.cos(theta)) * np.exp(k*b*np.cos(theta)) * np.exp(-1j*k*r)/k/r
                 F = Nf*F
-                
                 E = vector()
                 H = vector()
                 co,cx,crho=CO(theta,phi)

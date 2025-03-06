@@ -37,16 +37,17 @@ def lensPO(face1,face1_n,face1_dS,
     #print('E')
     #printF(Field_in_E)
     f1_E_t,f1_E_r,f1_H_t,f1_H_r, p_n1= Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
+    print(n/n0*np.abs(f1_E_t.x).max()/np.abs(Field_in_E.x).max())
     #print('T_n1')
     #p_t_n1 = poyntingVector(f1_E_t,f1_H_t)
     #p_t_n1 = scalarproduct(1/abs_v(p_t_n1),p_t_n1)
     #printF(p_t_n1)
 
-    
+    Z = Z0/n
     F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
                            face2,
                            f1_E_t,f1_H_t,
-                           k_n,
+                           k_n,Z,
                            device = device)
     
     f2_E_t,f2_E_r,f2_H_t,f2_H_r, p_n2= Fresnel_coeffi(n,n0,face2_n,F2_in_E,F2_in_H)

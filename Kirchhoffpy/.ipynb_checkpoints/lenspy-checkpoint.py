@@ -142,6 +142,7 @@ class simple_Lens():
         # 3D view
         # Analysis method
         self.method = None
+        self.target_face = None
         self.widget = widget
 
         ## coordinate system of the two surfaces of the lens.
@@ -158,14 +159,17 @@ class simple_Lens():
         )
         _ = self.widget.add_bounding_box(line_width=5, color='black')
         '''
+        
     def analysis(self,N1,N2,feed,k,
                  sampling_type_f1='rectangle',
                  phi_type_f1 = 'uniform',
                  sampling_type_f2='rectangle',
-                 phi_type_f2 = 'uniform',):
+                 phi_type_f2 = 'uniform',
+                 device = T.device('cuda')):
         if self.method == None:
             print('Please define the analysis methods!!!')
         else:
+            '''sampling the model'''
             self.f1,self.f1_n = self.sampling(N1,self.surf_fnc1,self.r1,
                                               Sampling_type = sampling_type_f1,
                                               phi_type=phi_type_f1)
@@ -178,17 +182,44 @@ class simple_Lens():
             
             self.f2 = local2global([np.pi,0,0], [0,0,self.t],self.f2)
             self.f2_n = local2global([np.pi,0,0],[0,0,0],self.f2_n)
-            
+            '''get field on surface 1 !!!!'''
             self.f_E_in,self.f_H_in, E_co, E_cx = feed(self.f1,self.f1_n)
-            
+            print('input power')
+            print((self.f1.w*np.abs(E_co)**2).sum())
+            print('poynting value max!')
+            p_n = poyntingVector(self.f_E_in,self.f_H_in)
+            print(abs_v(p_n).max())
+            '''double PO analysis!!!'''
             self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
             self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r = self.method(self.f1,self.f1_n,self.f1.w,
                                                    self.f2,self.f2_n,
                                                    self.f_E_in,self.f_H_in,
                                                    k,self.n,
-                                                   device = T.device('cuda'))
+                                                   device = device)
+            print('Transform f1')
+            print((self.f1.w*np.abs(self.f1_E_t.x)**2).sum())
+            print('poynting value max!')
+            p_n = poyntingVector(self.f1_E_t,self.f1_H_t)
+            print(abs_v(p_n).max())
+            print('f2')
+            print((self.f2.w*np.abs(self.f2_E.x)**2).sum())
+            print('poynting value max!')
+            p_n = poyntingVector(self.f2_E,self.f2_H)
+            print(abs_v(p_n).max())
+            print((self.f2.w*np.abs(self.f2_E_t.x)**2).sum())
+            print('poynting value max!')
+            p_n = poyntingVector(self.f2_E_t,self.f2_H_t)
+            print(abs_v(p_n).max())
             
-    def sampling(self, f1_N, surf_fuc,r1,r0=0,Sampling_type = 'polar', phi_type = 'uniform'):
+    def to_field(self):
+        pass
+        
+    def convergence(self,):
+        pass
+    def sampling(self,
+                 f1_N, surf_fuc,r1,r0=0,
+                 Sampling_type = 'polar',
+                 phi_type = 'uniform'):
         '''
         sampling_type = 'Gaussian' / 'uniform'
         '''

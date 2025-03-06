@@ -374,7 +374,7 @@ def PO(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
                                                                               face1_n.N,face1_dS,JE,JM);
     return Field_E,Field_H;
 
-def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device('cuda')):
+def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,Z,device =T.device('cuda')):
     # output field:
     N_f = face2.x.size
     Field_E=vector()
@@ -429,9 +429,9 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device
         del(he1)
         He=T.sum(he*he2*face1_n.N*face1_dS,axis=-1)
 
-        F_E_x=1/(4*np.pi)*Ee[0,...]
-        F_E_y=1/(4*np.pi)*Ee[1,...]
-        F_E_z=1/(4*np.pi)*Ee[2,...]
+        F_E_x=Z/(4*np.pi)*Ee[0,...]
+        F_E_y=Z/(4*np.pi)*Ee[1,...]
+        F_E_z=Z/(4*np.pi)*Ee[2,...]
         
         F_H_x=1/4/np.pi*He[0,...]/Z0
         F_H_y=1/4/np.pi*He[1,...]/Z0
