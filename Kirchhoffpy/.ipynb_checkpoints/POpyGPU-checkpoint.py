@@ -374,7 +374,7 @@ def PO(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
                                                                               face1_n.N,face1_dS,JE,JM);
     return Field_E,Field_H;
 
-def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,Z,device =T.device('cuda')):
+def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
     # output field:
     N_f = face2.x.size
     Field_E=vector()
@@ -397,7 +397,8 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,Z,device =T.devi
     face1_n.np2Tensor(device)
     face2.np2Tensor(device)
     face1_dS =T.tensor(face1_dS).to(device)
-    
+    k = k*n
+    Z = Z0/n
     def calcu(x2,y2,z2,Je):
         N_points = x2.size()[0]
         #print(N_points)
@@ -411,31 +412,32 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,Z,device =T.devi
         r2 = phase**2
         r3 = phase**3
         '''1'''
-        ee=T.exp(1j*phase)*k**2*(Je*(1j/phase-1/r2-1j/r3)+T.sum(Je*R/r,axis=0)*R/r*(-1j/phase+3/r2+3j/r3))
-        Ee=T.sum(ee*face1_n.N*face1_dS,axis=-1)
+        factor1=T.exp(1j*phase)*k*k
+        ee=factor1*(Je*(1j/phase-1/r2-1j/r3)+T.sum(Je*R/r,axis=0)*R/r*(-1j/phase+3/r2+3j/r3))
+        Ee=Z/(4*T.pi)*T.sum(ee*face1_n.N*face1_dS,axis=-1)
         del(ee)
         '''2'''
-        he=T.exp(1j*phase)*k**2
-        he1=(R*1/(r2)*(1-1j*phase))
-        he2 = T.zeros((3,N_points, N_current),dtype=T.complex128).to(device)
+        
+        #he1=(R*1/(r2)*(1-1j*phase))
+        #he2 = T.zeros((3,N_points, N_current),dtype=T.complex128).to(device)
 
         '''
         he2[0,...]=Je[1,...]*he1[2,...]-Je[2,...]*he1[1,...]
         he2[1,...]=Je[2,...]*he1[0,...]-Je[0,...]*he1[2,...]
         he2[2,...]=Je[0,...]*he1[1,...]-Je[1,...]*he1[0,...]
         '''
+        #he2 = T.cross(Je, R.type(T.cdouble),dim=0)*1/(r2)*(1-1j*phase)
+        he2 = T.cross(Je, (R/r).type(T.cdouble),dim=0)*1/(r2)*(1-1j*phase)
+        #del(he1)
+        He=T.sum(factor1*he2*face1_n.N*face1_dS,axis=-1)/(4*T.pi)
 
-        he2 = T.cross(Je, he1,dim=0)
-        del(he1)
-        He=T.sum(he*he2*face1_n.N*face1_dS,axis=-1)
-
-        F_E_x=Z/(4*np.pi)*Ee[0,...]
-        F_E_y=Z/(4*np.pi)*Ee[1,...]
-        F_E_z=Z/(4*np.pi)*Ee[2,...]
+        F_E_x=Ee[0,...]
+        F_E_y=Ee[1,...]
+        F_E_z=Ee[2,...]
         
-        F_H_x=1/4/np.pi*He[0,...]/Z0
-        F_H_y=1/4/np.pi*He[1,...]/Z0
-        F_H_z=1/4/np.pi*He[2,...]/Z0
+        F_H_x=He[0,...]
+        F_H_y=He[1,...]
+        F_H_z=He[2,...]
         return F_E_x,F_E_y,F_E_z,F_H_x,F_H_y,F_H_z
     if device==T.device('cuda'):
         M_all=T.cuda.get_device_properties(0).total_memory
@@ -475,7 +477,8 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,Z,device =T.devi
     face2.Tensor2np()
     T.cuda.empty_cache()
     return Field_E,Field_H
-    
+
+
 '''2.2 calculate the far-field beam'''    
 def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
    # output field:

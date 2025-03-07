@@ -66,14 +66,17 @@ class GaussiBeam():
                  Edge_taper,
                  Edge_angle,
                  k,
-                 coor_angle,coor_displacement,
+                 coord_sys,
+                 #coor_angle,
+                 #coor_displacement,
                  polarization='scalar'):
         
         self.T = Edge_taper
         self.A = Edge_angle/180*np.pi
         
-        self.coor_A = coor_angle
-        self.coor_D = coor_displacement
+        #self.coor_A = coor_angle
+        #self.coor_D = coor_displacement
+        self.coord_sys = coord_sys
 
         b = (np.log10((1+np.cos(self.A))/2)-self.T/20)/(k*(1-np.cos(self.A))*np.log10(np.exp(1)))
         w_2 = 2/k*(20*np.log10((1+np.cos(self.A))/2)-self.T)/(20*k*(1-np.cos(self.A))*np.log10(np.exp(1)))
@@ -95,8 +98,8 @@ class GaussiBeam():
             P = 2*np.pi*(np.sinh(2*k*b)*(1/2/k/b-2/(2*k*b)**2 + 2/(2*k*b)**3)+np.cosh(2*k*b)*(2/(2*k*b)**2-2/(2*k*b)**3))
             Nf = np.sqrt(4*np.pi/P)
             def beam(Mirror,Mirror_n):
-                Mirror=global2local(self.coor_A,self.coor_D,Mirror)
-                Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
+                #Mirror=global2local(self.coor_A,self.coor_D,Mirror)
+                #Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
                 r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
                 print('Gain of the Guassian feedhonr!')
                 print(np.log10(Nf*((1+np.cos(theta)) * np.exp(k*b*np.cos(theta))).max())*20,'dB')
@@ -108,17 +111,11 @@ class GaussiBeam():
                 if polarization.lower()=='x':
                     E=scalarproduct(F,co)
                     H=scalarproduct(F/Z0,cx)
-                    E_co = F #dotproduct(E,co)
-                    E_cx = 0.0 #dotproduct(E,cx)
-                    E_r  = 0.0 #dotproduct(E,crho)
                 elif polarization.lower()=='y':
                     H=scalarproduct(F/Z0,co)
                     E=scalarproduct(F,cx)
-                    E_co = 0.0 #dotproduct(E,co)
-                    E_cx = F #dotproduct(E,cx)
-                    E_r  = 0.0 #dotproduct(E,crho)
-                return E, H , E_co , E_cx
-        self.beam = beam
+                return E, H
+        self.source = beam
 
 def Gaussibeam(Edge_taper,Edge_angle,k,Mirror_in,Mirror_n,angle,displacement,polarization='scalar'):
     '''
