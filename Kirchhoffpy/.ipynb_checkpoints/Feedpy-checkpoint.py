@@ -95,25 +95,33 @@ class GaussiBeam():
                 cos_i=np.abs(Mirror.x*Mirror_n.x+Mirror.y*Mirror_n.y+Mirror.z*Mirror_n.z)/r;
                 return E.real,E.imag,cos_i;
         else: 
-            P = 2*np.pi*(np.sinh(2*k*b)*(1/2/k/b-2/(2*k*b)**2 + 2/(2*k*b)**3)+np.cosh(2*k*b)*(2/(2*k*b)**2-2/(2*k*b)**3))
-            Nf = np.sqrt(4*np.pi/P)
+            B = 2*np.pi*np.exp(-2*b*k)/4/b**3/k**3
+            B = B*(np.exp(4*b*k)*(8*b**2*k**2-4*b*k+1)-1)
+            print(B)
+            #Nf = np.sqrt(Z0/B)
+            #Nf = 1/k/np.sqrt(B)
+            Nf = np.sqrt(4*np.pi/k**2/B)
             def beam(Mirror,Mirror_n):
                 #Mirror=global2local(self.coor_A,self.coor_D,Mirror)
                 #Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
                 r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
                 print('Gain of the Guassian feedhonr!')
-                print(np.log10(Nf*((1+np.cos(theta)) * np.exp(k*b*np.cos(theta))).max())*20,'dB')
-                F = (1+np.cos(theta)) * np.exp(k*b*np.cos(theta)) * np.exp(-1j*k*r)/k/r
+                print(np.log10((Nf*((1+np.cos(theta)) * np.exp(k*b*np.cos(theta))).max())**2/Z0*4*np.pi)*10,'dB')
+                F = (1+np.cos(theta)) * np.exp(k*b*np.cos(theta)) * np.exp(-1j*k*r)/r
                 F = Nf*F
+                #print((1/Z0*np.abs(F)**2*Mirror.w*Mirror_n.N).sum())
+                print((k**2*np.abs(F)**2*Mirror.w*Mirror_n.N).sum())
                 E = vector()
                 H = vector()
                 co,cx,crho=CO(theta,phi)
                 if polarization.lower()=='x':
                     E=scalarproduct(F,co)
-                    H=scalarproduct(F/Z0,cx)
+                    #H=scalarproduct(F/Z0,cx)
+                    H=scalarproduct(F,cx)
                 elif polarization.lower()=='y':
-                    H=scalarproduct(F/Z0,co)
+                    #H=scalarproduct(F/Z0,co)
                     E=scalarproduct(F,cx)
+                    H=scalarproduct(F,co)
                 return E, H
         self.source = beam
 

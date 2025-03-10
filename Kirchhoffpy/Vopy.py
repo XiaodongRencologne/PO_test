@@ -21,15 +21,15 @@ class vector():
         self.y=np.array([])
         self.z=np.array([])
     def tocoordsys(self,matrix=None):
-        if matrix==None:
-            self.gx=self.x
-            self.gy=self.y
-            self.gz=self.z
+        if matrix is not None:
+            self.x=self.x
+            self.y=self.y
+            self.z=self.z
         else:
             data=np.matmul(matrix,np.concatenate((self.x,self.y,self.z)).reshape(3,-1))
-            self.gx=data[0,...]
-            self.gy=data[1,...]
-            self.gz=data[2,...]
+            self.x=data[0,...]
+            self.y=data[1,...]
+            self.z=data[2,...]
     def totensor(self,device = 'cpu'):
         self.x = T.tensor(self.x).to(device)
         self.y = T.tensor(self.y).to(device)

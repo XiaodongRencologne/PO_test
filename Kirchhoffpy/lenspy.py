@@ -16,14 +16,17 @@ from .Gauss_L_quadr import Guass_L_quadrs_Circ,Gauss_L_quadrs2d
 from .coordinate_operations import Coord;
 from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
+from .field_storage import Spherical_grd
 
-from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO,PO_GPU,epsilon,mu
+from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO
+from .POpyGPU import PO_far_GPU,PO_far,PO_GPU,epsilon,mu
 
-from .Vopy import vector,abs_v,scalarproduct
+from .Vopy import vector,abs_v,scalarproduct, CO
 
 import pyvista as pv
 pv.set_jupyter_backend('trame')#('static')#
-    
+
+import matplotlib.pyplot as plt
 #%%
 def read_rsf(file,units= 'cm'):
     factor= 1.0
@@ -81,7 +84,7 @@ def read_rsf2(file,units= 'cm'):
     return srf
 
 ## save the lens surface information into H5 files, includeing surface, normal, field E and H
-def saveh5_surf(file_h5,face,face_n, E, H,name = 'face'):
+def saveh5_surf(file_h5,face,face_n, E, H, T, R,name = 'face'):
     group = file_h5.create_group(name)
     group.create_dataset('x', data = face.x)
     group.create_dataset('y', data = face.y)
@@ -97,7 +100,29 @@ def saveh5_surf(file_h5,face,face_n, E, H,name = 'face'):
     group.create_dataset('Hx', data = H.x)
     group.create_dataset('Hy', data = H.y)
     group.create_dataset('Hz', data = H.z)
+    group.create_dataset('T', data = T)
+    group.create_dataset('R', data = R)
+    #group.create_dataset('poynting', data = poynting)
+## save the lens surface information into H5 files, includeing surface, normal, field E and H
 
+def read_cur(filename):
+    face = Coord()
+    face_n = Coord()
+    H = vector()
+    with h5py.File(filename,'r') as f:
+        face.x = f['f2/x'][:].ravel()
+        face.y = f['f2/y'][:].ravel()
+        face.z = f['f2/z'][:].ravel()
+        face.w = f['f2/w'][:].ravel()
+        face_n.x = f['f2/nx'][:].ravel()
+        face_n.y = f['f2/ny'][:].ravel()
+        face_n.z = f['f2/nz'][:].ravel()
+        face_n.N = f['f2/N'][:].ravel()
+        H.x = f['f2/Hx'][:].ravel()
+        H.y = f['f2/Hy'][:].ravel()
+        H.z = f['f2/Hz'][:].ravel()
+    return face, face_n, H
+    
 class simple_Lens():
     def __init__(self,
                  n,thickness, D,
@@ -126,7 +151,7 @@ class simple_Lens():
         self.method = None
         self.target_face = None
         self.widget = widget
-
+        self.surf_cur_file = None
         ## coordinate system of the two surfaces of the lens.
 
         '''
@@ -147,78 +172,130 @@ class simple_Lens():
                      phi_type_f1 = 'uniform',
                      sampling_type_f2='rectangle',
                      phi_type_f2 = 'uniform',
+                     Method ='popo',
                      device = T.device('cuda'),
-                     f_name = '_po_cur.h5'):
-        if self.method == None:
-            print('Please define the analysis methods!!!')
-        else:
-            '''sampling the model'''
-            f1,f1_n = self.sampling(N1,self.surf_fnc1,self.r1,
-                                              Sampling_type = sampling_type_f1,
-                                              phi_type=phi_type_f1)
-            
-            #f1_n =scalarproduct(1,f1_n)
-            
-            f2,f2_n = self.sampling(N2,self.surf_fnc2,self.r2,
-                                             Sampling_type = sampling_type_f2,
-                                             phi_type=phi_type_f2)
-            
-            f2 = local2global([np.pi,0,0], [0,0,self.t],f2)
-            f2_n = local2global([np.pi,0,0],[0,0,0],f2_n)
-            # convert two surfaces into target coordinates
-            f1_p = copy.copy(f1)
-            f1_p_n = copy.copy(f1_n)
-            f1_p.x,f1_p.y,f1_p.z = self.coord_sys._toGlobal_coord(f1_p.x,f1_p.y,f1_p.z)
-            f1_p.x,f1_p.y,f1_p.z = feed.coord_sys.Global_to_local(f1_p.x,f1_p.y,f1_p.z)
-            f1_p_n.x,f1_p_n.y,f1_p_n.z = self.coord_sys._toGlobal_coord(f1_p_n.x,f1_p_n.y,f1_p_n.z)
-            f1_p_n.x,f1_p_n.y,f1_p_n.z = feed.coord_sys.Global_to_local(f1_p_n.x,f1_p_n.y,f1_p_n.z)
-            
-            
-            '''get field on surface 1 !!!!'''
-            self.f_E_in,self.f_H_in,= feed.source(f1_p,f1_p_n)
-            print('input power')
-            #print((1**2*epsilon*f1.w*np.abs(self.f_E_in.x)**2).sum())
-            #print((mu*f1.w*np.abs(self.f_H_in.y)**2).sum())
-            print('poynting value max!')
-            p_n = poyntingVector(self.f_E_in,self.f_H_in)
-            print(abs_v(p_n).max())
-            '''double PO analysis!!!'''
-            self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
-            self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r = self.method(f1,f1_n,f1.w,
-                                                                                            f2,f2_n,
-                                                                                            self.f_E_in,self.f_H_in,
-                                                                                            k,self.n,
-                                                                                            device = device)
-            
-            #print('Transform f1')
-            #print((self.n**2*epsilon*f1.w*np.abs(self.f1_E_t.x)**2).sum())
-            #print((mu*f1.w*np.abs(self.f1_H_t.y)**2).sum())
-            print('poynting value max!')
-            p_n = poyntingVector(self.f1_E_t,self.f1_H_t)
-            print(abs_v(p_n).max())
-            print('f2')
-            #print((self.n**2*epsilon*f2.w*np.abs(self.f2_E.x)**2).sum())
-            #print((mu*f2.w*np.abs(self.f2_H.y)**2).sum())
-            print('poynting value max!')
-            p_n = poyntingVector(self.f2_E,self.f2_H)
-            print(abs_v(p_n).max())
-            #print((epsilon*f2.w*np.abs(self.f2_E_t.x)**2).sum())
-            #print((mu*f2.w*np.abs(self.f2_H_t.y)**2).sum())
-            print('poynting value max!')
-            p_n = poyntingVector(self.f2_E_t,self.f2_H_t)
-            print(abs_v(p_n))
-            print(abs_v(p_n).max(),abs_v(p_n).min())
+                     po_name = '_po_cur.h5'):
+        if Method.lower() == 'popo':
+            method = lensPO 
+        '''sampling the model'''
+        f1,f1_n = self.sampling(N1,self.surf_fnc1,self.r1,
+                                          Sampling_type = sampling_type_f1,
+                                          phi_type=phi_type_f1)
+        
+        #f1_n =scalarproduct(1,f1_n)
+        
+        f2,f2_n = self.sampling(N2,self.surf_fnc2,self.r2,
+                                         Sampling_type = sampling_type_f2,
+                                         phi_type=phi_type_f2)
+        self.f2 = copy.copy(f2)
+        self.f2_n = copy.copy(f2_n)
+        f2 = local2global([np.pi,0,0], [0,0,self.t],f2)
+        f2_n = local2global([np.pi,0,0],[0,0,0],f2_n)
+        # convert two surfaces into target coordinates
+        f1_p = copy.copy(f1)
+        f1_p_n = copy.copy(f1_n)
+        f1_p.x,f1_p.y,f1_p.z = self.coord_sys._toGlobal_coord(f1_p.x,f1_p.y,f1_p.z)
+        f1_p.x,f1_p.y,f1_p.z = feed.coord_sys.Global_to_local(f1_p.x,f1_p.y,f1_p.z)
+        f1_p_n.x,f1_p_n.y,f1_p_n.z = self.coord_sys._toGlobal_coord(f1_p_n.x,f1_p_n.y,f1_p_n.z)
+        f1_p_n.x,f1_p_n.y,f1_p_n.z = feed.coord_sys.Global_to_local(f1_p_n.x,f1_p_n.y,f1_p_n.z)
+        data = np.matmul(np.matmul(feed.coord_sys.mat_g_l,self.coord_sys.mat_l_g),
+                         np.array([f1_p_n.x,f1_p_n.y,f1_p_n.z]))
+        f1_p_n.x = data[0,:]
+        f1_p_n.y = data[1,:]
+        f1_p_n.z = data[2,:]
+        
+        
+        '''get field on surface 1 !!!!'''
+        E_in, H_in,= feed.source(f1_p,f1_p_n)
+        print(np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
+        E_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
+        H_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
+        
+        self.f_E_in = E_in
+        self.f_H_in = H_in
+        del(f1_p,f1_p_n)
+        print('input power')
+        print('poynting value max!')
+        p_n = poyntingVector(self.f_E_in,self.f_H_in)
+        print(abs_v(p_n).max())
+        #print((abs_v(p_n)*f1.w).sum())
+        print(k**2*(abs_v(p_n)*f1.w).sum())
+        print('******')
+        #print((1**2*epsilon*f1.w*np.abs(self.f_E_in.x)**2).sum())
+        #print((mu*f1.w*np.abs(self.f_H_in.y)**2).sum())
+        
+        '''double PO analysis!!!'''
+        self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
+        self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r, T1, R1, T2, R2 = method(f1,f1_n,f1.w,
+                                                                                        f2,f2_n,
+                                                                                        self.f_E_in,self.f_H_in,
+                                                                                        k,self.n,
+                                                                                        device = device)
+        print('Transform f1')
+        print('poynting value max!')
+        p_n = poyntingVector(self.f1_E_t,self.f1_H_t)
+        print(abs_v(p_n).max())
+        #print((abs_v(p_n)*f1.w).sum())
+        print(k**2*(abs_v(p_n)*f1.w).sum())
+        print('f2')
+        print('poynting value max!')
+        p_n = poyntingVector(self.f2_E,self.f2_H)
+        print(abs_v(p_n).max())
+        #print((abs_v(p_n)*f2.w).sum())
+        print(k**2*(abs_v(p_n)*f2.w).sum())
+        print('f2 transmission')
+        print('poynting value max!')
+        p_n = poyntingVector(self.f2_E_t,self.f2_H_t)
+        #print((abs_v(p_n)*f2.w).sum())
+        print(k**2*(abs_v(p_n)*f2.w).sum())
 
-            # save to h5 data file
-            with h5py.File(self.outfolder+self.name+f_name,'w') as file:
-                self.f2_E_t.x = self.f2_E_t.x.reshape(N2[2],N2[0]) 
-                self.f2_E_t.y = self.f2_E_t.y.reshape(N2[2],N2[0]) 
-                self.f2_E_t.z = self.f2_E_t.z.reshape(N2[2],N2[0]) 
-                self.f2_H_t.x = self.f2_H_t.x.reshape(N2[2],N2[0]) 
-                self.f2_H_t.y = self.f2_H_t.y.reshape(N2[2],N2[0]) 
-                self.f2_H_t.z = self.f2_H_t.z.reshape(N2[2],N2[0]) 
-                saveh5_surf(file,f1,f1_n, self.f_E_in, self.f_H_in,name = 'f1')
-                saveh5_surf(file,f2,f2_n, self.f2_E_t, self.f2_H_t,name = 'f2')
+        # save to h5 data file
+        self.surf_cur_file = self.outfolder + self.name + po_name
+        with h5py.File(self.surf_cur_file,'w') as file:
+            #self.f2_E_t.x = self.f2_E_t.x.reshape(N2[2],N2[0]) 
+            #self.f2_E_t.y = self.f2_E_t.y.reshape(N2[2],N2[0]) 
+            #self.f2_E_t.z = self.f2_E_t.z.reshape(N2[2],N2[0]) 
+            #self.f2_H_t.x = self.f2_H_t.x.reshape(N2[2],N2[0]) 
+            #self.f2_H_t.y = self.f2_H_t.y.reshape(N2[2],N2[0]) 
+            #self.f2_H_t.z = self.f2_H_t.z.reshape(N2[2],N2[0]) 
+            saveh5_surf(file,f1,f1_n, self.f_E_in, self.f_H_in,T1,R1,name = 'f1')
+            saveh5_surf(file,f2,f2_n, self.f2_E_t, self.f2_H_t,T2,R2,name = 'f2')
+
+    def source(self,
+               target,
+               k,
+               far_near = 'near'):
+        # read the source on surface face2;
+        face2, face2_n, H2 = read_cur(self.surf_cur_file)
+        if isinstance(target,Spherical_grd):
+            face2.x,face2.y,face2.z = self.coord_sys._toGlobal_coord(face2.x,face2.y,face2.z)
+            face2.x,face2.y,face2.z = target.coord_sys.Global_to_local(face2.x,face2.y,face2.z)
+
+            data = np.matmul(np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g),
+                         np.array([face2_n.x,face2_n.y,face2_n.z]))
+            face2_n.x = data[0,:]
+            face2_n.y = data[1,:]
+            face2_n.z = data[2,:]
+            H2.tocoordsys(matrix = np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
+
+            
+            if far_near.lower() == 'far':
+                target.E,target.H = PO_far_GPU(face2,face2_n,face2.w,
+                                               target.grid,
+                                               0,
+                                               H2,
+                                               k,
+                                               device =T.device('cuda'))
+            else:
+                target.E,target.H = PO_GPU(face2,face2_n,face2.w,
+                                           target.grid,
+                                           0,
+                                           H2,
+                                           k,
+                                           1, # n refractive index
+                                           device =T.device('cuda'))
+        else:
+            pass
     ## sampling technique
     def sampling(self,
                  f1_N, surf_fuc,r1,r0=0,

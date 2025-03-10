@@ -37,8 +37,7 @@ def lensPO(face1,face1_n,face1_dS,
     #printF(Field_in_H)
     #print('E')
     #printF(Field_in_E)
-    f1_E_t,f1_E_r,f1_H_t,f1_H_r, p_n1= Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
-    print(np.abs(f1_E_t.x).max()/np.abs(Field_in_E.x).max())
+    f1_E_t,f1_E_r,f1_H_t,f1_H_r, p_n1 , T1, R1 = Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
     #print('T_n1')
     #p_t_n1 = poyntingVector(f1_E_t,f1_H_t)
     #p_t_n1 = scalarproduct(1/abs_v(p_t_n1),p_t_n1)
@@ -51,7 +50,7 @@ def lensPO(face1,face1_n,face1_dS,
                            k,n,
                            device = device)
     
-    f2_E_t,f2_E_r,f2_H_t,f2_H_r, p_n2= Fresnel_coeffi(n,n0,face2_n,F2_in_E,F2_in_H)
+    f2_E_t,f2_E_r,f2_H_t,f2_H_r, p_n2, T2, R2= Fresnel_coeffi(n,n0,face2_n,F2_in_E,F2_in_H)
     
     #printF(p_n2)
     '''
@@ -61,7 +60,7 @@ def lensPO(face1,face1_n,face1_dS,
                      k,
                      device = device)
     '''
-    return F2_in_E,F2_in_H,f2_E_t,f2_E_r,f2_H_t,f2_H_r, f1_E_t,f1_E_r,f1_H_t,f1_H_r
+    return F2_in_E,F2_in_H,f2_E_t,f2_E_r,f2_H_t,f2_H_r, f1_E_t,f1_E_r,f1_H_t,f1_H_r,T1,R1,T2,R2
 
 def lensPO_far(face1,face1_n,face1_dS,
            face2,face2_n,face2_dS,
@@ -197,4 +196,4 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     #H_p.x[NN] = H.x[NN]
     #H_p.y[NN] = H.y[NN]
     #H_p.z[NN] = H.z[NN]
-    return E_t,E_r,H_t,H_r, poynting_n
+    return E_t,E_r,H_t,H_r, poynting_n, n2/n1*theta_t_cos/theta_i_cos*(T_p**2+T_s**2)/2, (R_p**2+R_s**2)/2

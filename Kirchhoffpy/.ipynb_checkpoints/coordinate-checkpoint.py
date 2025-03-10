@@ -35,7 +35,12 @@ class coord_sys():
     the reference coord, roation angles 'angle=[0,0,0]' and rotating axes 'xyz' based on euler angles.
     The default reference coord is pre-defined global coordinate system.
     '''
-    def __init__(self,origin,angle,axes='xyz',ref_coord=global_coord,name='coor_sys'):
+    def __init__(self,
+                 origin,
+                 angle,
+                 axes='xyz',
+                 ref_coord=global_coord,
+                 name='coor_sys'):
         self.origin=np.array(origin).reshape(3,1)
 
         self.mat_r_l=euler2mat(angle[0],angle[1],angle[2],axes=axes)

@@ -480,7 +480,7 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.devi
 
 
 '''2.2 calculate the far-field beam'''    
-def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
+def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True,device =T.device('cpu')):
    # output field:
     Field_E=vector()
     Field_H=vector()  
@@ -503,19 +503,27 @@ def PO_far(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
         for i in prange(x2.size):
             r = np.array([[x2[i]],[y2[i]],[z2[i]]])
             phase = k*np.sum(rp*r,axis=0)
-            Ee = (JE-np.sum(JE*r,axis = 0)*r)* np.exp(1j*phase)*k**2
-            Ee = np.sum(Ee*N,axis=-1)*ds*(-1j*Z0/4/np.pi)
-            
+            Ee = (JE-np.sum(JE*r,axis = 0) * r) * np.exp(1j*phase)*k**2
+            Ee = np.sum(Ee*N*ds,axis=-1)*(-1j*Z0/4/np.pi)
+            #print(Ee)
             Field_E_x[i] = Ee[0]
             Field_E_y[i] = Ee[1]
             Field_E_z[i] = Ee[2]
+        #print(Field_E_x)
         return Field_E_x,Field_E_y,Field_E_z,Field_H_x,Field_H_y,Field_H_z
-    Field_E.x,Field_E.y,Field_E.z,Field_H.x,Field_H.y,Field_H.z=calculus1(face1.x,face1.y,face1.z,face2.x,face2.y,face2.z,
-                                                    face1_n.N,face1_dS)
+    Field_E.x,Field_E.y,Field_E.z,Field_H.x,Field_H.y,Field_H.z=calculus1(face1.x,face1.y,face1.z,
+                                                                          face2.x.ravel(),face2.y.ravel(),face2.z.ravel(),
+                                                                          face1_n.N.ravel(),face1_dS.ravel())
+    #print(Field_E.x)
     return Field_E,Field_H
         
 
-def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.device('cuda')):
+def PO_far_GPU(face1,face1_n,face1_dS,
+               face2,
+               Field_in_E,
+               Field_in_H,
+               k,
+               device =T.device('cuda')):
     # output field:
     N_f = face2.x.size
     Field_E=vector()
@@ -528,18 +536,22 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
     Field_H.z = np.zeros(N_f) + 1j*np.zeros(N_f)
 
     Je_in=scalarproduct(2,crossproduct(face1_n,Field_in_H))
-    JE=T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1),dtype = T.complex128).to(device)
+    JE=T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1),
+                dtype = T.complex128).to(device)
 
     face1.np2Tensor(device)
     N_current = face1.x.size()[0]
     face1_n.np2Tensor(device)
     face2.np2Tensor(device)
-    rp = T.tensor((3,1,face1.x.size()[0]))
+    face2.x = face2.x.ravel()
+    face2.y = face2.y.ravel()
+    face2.z = face2.z.ravel()
+    rp = T.zeros((3,1,N_current),dtype = T.float64).to(device)
     rp[0,...] = face1.x.reshape((1,-1))
     rp[1,...] = face1.y.reshape((1,-1))
     rp[2,...] = face1.z.reshape((1,-1))
-
-    def calcu(x2,y2,z2,Je):
+    face1_dS =T.tensor(face1_dS).to(device)
+    def calcu(x2,y2,z2):
         N_points = x2.size()[0]
         #print(N_points)
         r = T.zeros((3,N_points,1)).to(device)
@@ -547,17 +559,18 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
         r[1,:,:] = y2.reshape(-1,1)
         r[2,:,:] = z2.reshape(-1,1)
         phase = k*T.sum(rp*r,axis = 0)
-        Ee = (JE-T.sum(JE*r,axis = 0)*r)* np.exp(1j*phase)*k**2
-        Ee = np.sum(Ee*face1_n.N,axis=-1)*face1_dS*(-1j*Z0/4/np.pi)
+        Ee = (JE-T.sum(JE*r,axis = 0)*r)* T.exp(1j*phase)*k**2
+        Ee = T.sum(Ee*face1_n.N*face1_dS,axis=-1)*(-1j*Z0/4/T.pi)
 
         F_E_x = Ee[0,...]
         F_E_y = Ee[1,...]
         F_E_z = Ee[2,...]
-
-        F_H_x = 0
-        F_H_y = 0
-        F_H_z = 0
-        return F_E_x,F_E_y,F_E_z,F_H_x,F_H_y,F_H_z
+        # calculate Magnetic field
+        He = T.cross(r.reshape(3,-1).type(T.cdouble),Ee,axis=0)/Z0
+        F_H_x = He[0,...]
+        F_H_y = He[1,...]
+        F_H_z = He[2,...]
+        return F_E_x, F_E_y, F_E_z, F_H_x, F_H_y, F_H_z
     
     if device==T.device('cuda'):
         M_all=T.cuda.get_device_properties(0).total_memory
@@ -572,8 +585,7 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
     for i in tqdm(range(Ni)):
         E_X,E_Y,E_Z,H_X,H_Y,H_Z=calcu(face2.x[i*cores:(i+1)*cores],
                                       face2.y[i*cores:(i+1)*cores],
-                                      face2.z[i*cores:(i+1)*cores],
-                                      JE)
+                                      face2.z[i*cores:(i+1)*cores])
         Field_E.x[i*cores:(i+1)*cores] = E_X.cpu().numpy()
         Field_E.y[i*cores:(i+1)*cores] = E_Y.cpu().numpy()
         Field_E.z[i*cores:(i+1)*cores] = E_Z.cpu().numpy()
@@ -584,8 +596,7 @@ def PO_far_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,device =T.de
     if int(N%cores)!=0:
         E_X,E_Y,E_Z,H_X,H_Y,H_Z=calcu(face2.x[Ni*cores:],
                                       face2.y[Ni*cores:],
-                                      face2.z[Ni*cores:],
-                                      JE)
+                                      face2.z[Ni*cores:])
         Field_E.x[Ni*cores:] = E_X.cpu().numpy()
         Field_E.y[Ni*cores:] = E_Y.cpu().numpy()
         Field_E.z[Ni*cores:] = E_Z.cpu().numpy()
