@@ -27,7 +27,9 @@ class Spherical_grd():
         X = X.ravel()
         Y = Y.ravel()
         Grid_type={'uv':      lambda x,y: (x,y,np.sqrt(1-(x**2+y**2))),
-                   'eloveraz':lambda x,y: (np.sin(x/180*np.pi)*np.cos(y/180*np.pi),np.sin(y/180*np.pi),np.cos(x/180*np.pi)*np.cos(y/180*np.pi))
+                   'eloveraz':lambda x,y: (-np.sin(x/180*np.pi)*np.cos(y/180*np.pi),
+                                           np.sin(y/180*np.pi),
+                                           np.cos(x/180*np.pi)*np.cos(y/180*np.pi))
               }
         self.grid.x, self.grid.y, self.grid.z = Grid_type[Type](X,Y)
 
@@ -41,5 +43,3 @@ class Spherical_grd():
             pass
         else:
             print('Error input!')
-            
-            
