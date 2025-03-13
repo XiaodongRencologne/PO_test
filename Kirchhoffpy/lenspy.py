@@ -277,6 +277,7 @@ class simple_Lens():
             face2_n.y = data[1,:]
             face2_n.z = data[2,:]
             H2.tocoordsys(matrix = np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
+            print(np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
 
             
             if far_near.lower() == 'far':
