@@ -140,6 +140,117 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     #s_n = scalarproduct(1/A_poynting_n, crossproduct(v_n,poynting_n))
     s_n = crossproduct(v_n,poynting_n)
     s_n_A = abs_v(s_n)
+    NN = np.where(s_n_A <= 10**(-16))
+    print(NN)
+    s_n_A[NN] = 1.0
+    s_n.x[NN]=0.0
+    s_n.y[NN]=0.0
+    s_n.z[NN]=0.0
+
+    s_n = scalarproduct(1/s_n_A,s_n)
+    #nan_items = np.isnan(s_n.x)
+    
+    a = theta_i_cos
+    d = theta_t_cos
+    
+    T_p = 2*n1*a/(n2 * a + n1 * d)
+    T_s = 2*n1*a/(n1 * a + n2 * d)
+
+    R_p = (n2*a - n1*d)/(n2*a + n1*d)
+    R_s = (n1*a - n2*d)/(n1*a + n2*d) 
+
+    R_p[NN_r] = 1.0
+    R_s[NN_r] = 1.0
+    T_p[NN_r] = 0.0
+    T_s[NN_r] = 0.0
+
+    # convert E and H field to s_n and p_n, perpendicutlar and paraller
+    #print(poynting_n.z)
+    #print(v_n.z)
+    #print(s_n.y)
+    x_n = crossproduct(v_n,s_n)
+    print('test vx')
+    print(abs_v(x_n).max(),abs_v(x_n).min())
+
+    E_s = scalarproduct(dotproduct(E,s_n),s_n)
+    E_p = sumvector(E,scalarproduct(-1,E_s))
+    E_p_z = scalarproduct(dotproduct(E,v_n),v_n)
+    E_p_x = scalarproduct(dotproduct(E,x_n),x_n)
+    #E_p_x = sumvector(E_p,scalarproduct(-1,E_p_z)) 
+    
+    H_s = scalarproduct(dotproduct(H,s_n),s_n)
+    H_p = sumvector(H,scalarproduct(-1,H_s))
+    H_p_z = scalarproduct(dotproduct(H,v_n),v_n)
+    H_p_x = scalarproduct(dotproduct(H,x_n),x_n)
+    #H_p_x = sumvector(E_p,scalarproduct(-1,H_p_z)) 
+
+    '''
+    E_t = sumvector(scalarproduct(T_s,E_s),scalarproduct(T_p,E_p_z))
+    E_t = sumvector(E_t,scalarproduct(T_p,E_p_x))
+    E_r = sumvector(scalarproduct(R_s,E_s),scalarproduct(R_p,E_p_z))
+    E_r = sumvector(E_r,scalarproduct(R_p,E_p_x))
+    '''
+    E_t_s = scalarproduct(T_s,E_s)
+    E_t_p_z = scalarproduct(T_p*theta_t_sin,E_p_z)
+    E_t_p_x = scalarproduct(T_p*d,E_p_x)
+    E_t = sumvector(E_t_s,sumvector(E_t_p_x,E_t_p_z))
+    E_r = sumvector(scalarproduct(R_s,E_s),scalarproduct(R_p,E_p))
+
+    #E_t = sumvector(scalarproduct(T_s,E_s),scalarproduct(T_p,E_p))
+    #E_r = sumvector(scalarproduct(R_s,E_s),scalarproduct(R_p,E_p))
+
+    
+    #print((theta_t_cos*abs_v(E_t)**2/Z2 + theta_i_cos*abs_v(E_r)**2/Z1)/theta_i_cos)
+    '''
+    H_t = sumvector(scalarproduct(T_p*n2/n1,H_s),scalarproduct(T_s*n2/n1,H_p_z))
+    H_t = sumvector(H_t,scalarproduct(T_s*n2/n1,H_p_x))
+    H_r = sumvector(scalarproduct(R_p,H_s),scalarproduct(R_s,H_p_z))
+    H_r = sumvector(H_r,scalarproduct(R_s,E_p_x))
+    '''
+    H_t_s = scalarproduct(T_p*n2/n1,H_s)
+    H_t_p_z = scalarproduct(T_s,H_p_z)#*theta_t_sin*n2/n1
+    H_t_p_x = scalarproduct(T_s*n2/n1*d/theta_i_cos,H_p_x)
+    H_t = sumvector(H_t_s,sumvector(H_t_p_x,H_t_p_z))
+    #H_t = sumvector(scalarproduct(T_p*n2/n1,H_s),scalarproduct(T_s*n2/n1,H_p))
+    H_r = sumvector(scalarproduct(R_p,H_s),scalarproduct(R_s,H_p))
+
+    #H_p.x[NN] = H.x[NN]
+    #H_p.y[NN] = H.y[NN]
+    #H_p.z[NN] = H.z[NN]
+    return E_t,E_r,H_t,H_r, poynting_n, n2/n1*theta_t_cos/theta_i_cos*(T_p**2+T_s**2)/2, (R_p**2+R_s**2)/2
+
+
+"""
+def Fresnel_coeffi(n1,n2,v_n,E,H):
+    Z1 = Z0/n1
+    Z2 = Z0/n2
+    '''
+    n1 and n2 re refractive index of material on left of the surface and right of the surface.
+    v_n is the normal vector direction from n2 to n1
+    poynting_n is the incident wave.
+    theta_i = pi - arccos(v_n * poynting_n)
+    '''
+    #calculating poynting vector
+    poynting_n = poyntingVector(E,H)
+    A_poynting_n = abs_v(poynting_n)
+    poynting_n = scalarproduct(1/A_poynting_n,poynting_n)
+    
+    # calculation the incident angle and refractive angle
+    theta_i_cos = np.abs(dotproduct(v_n,poynting_n))
+    theta_i_sin = np.sqrt(1 - theta_i_cos**2)
+    theta_t_sin = n1/n2*theta_i_sin
+    #print(theta_t_sin)
+    NN_r = np.where(np.abs(theta_t_sin)>=1.0) # total reflection point
+    theta_t_sin[NN_r] =1.0
+    theta_t_cos = np.sqrt(1 - theta_t_sin**2)
+    # define perpendicular vector, 
+    #the plane give by normal vector v_n and poynting vector is the reflection and refractive plane. 
+    # cross product of the two vector gives the vector perpendicular the reflection plane. We will use 
+    # this vector as the reference to calculate the transmission coefficient for parallel polarization 
+    # and perpendicular polarization coefficient.
+    #s_n = scalarproduct(1/A_poynting_n, crossproduct(v_n,poynting_n))
+    s_n = crossproduct(v_n,poynting_n)
+    s_n_A = abs_v(s_n)
     NN = np.where(s_n_A == 0.0)
     s_n_A[NN] = 1.0
     s_n = scalarproduct(1/s_n_A,s_n)
@@ -197,3 +308,4 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     #H_p.y[NN] = H.y[NN]
     #H_p.z[NN] = H.z[NN]
     return E_t,E_r,H_t,H_r, poynting_n, n2/n1*theta_t_cos/theta_i_cos*(T_p**2+T_s**2)/2, (R_p**2+R_s**2)/2
+"""
