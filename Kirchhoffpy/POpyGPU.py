@@ -2,7 +2,7 @@
 # coding: utf-8
 
 # In[1]:
-
+import os
 from tqdm import tqdm
 import numpy as np;
 import torch as T;
@@ -449,7 +449,7 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.devi
         print('cores:',cores)
     N=face2.x.nelement()
     Ni = int(N/cores)
-    for i in tqdm(range(Ni)):
+    for i in tqdm(prange(Ni)):
         E_X,E_Y,E_Z,H_X,H_Y,H_Z=calcu(face2.x[i*cores:(i+1)*cores],
                                       face2.y[i*cores:(i+1)*cores],
                                       face2.z[i*cores:(i+1)*cores],
