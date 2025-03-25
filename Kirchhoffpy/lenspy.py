@@ -4,7 +4,7 @@
 Package used to build mirror model based on 'uniform sampling' and 'Gaussian quadrature';
 
 """
-
+import os
 import numpy as np
 import copy
 import h5py
@@ -109,6 +109,7 @@ def read_cur(filename):
     face = Coord()
     face_n = Coord()
     H = vector()
+    print(filename)
     with h5py.File(filename,'r') as f:
         face.x = f['f2/x'][:].ravel()
         face.y = f['f2/y'][:].ravel()
@@ -132,6 +133,8 @@ class simple_Lens():
                  name = 'simplelens',
                  Device = T.device('cuda'),
                  outputfolder = 'output/'):
+        if not os.path.exists(outputfolder):
+            os.makedirs(outputfolder)
         self.name = name # lens name
         self.outfolder = outputfolder
         self.n = n # refractive index of the lens
@@ -175,6 +178,7 @@ class simple_Lens():
                      Method ='popo',
                      device = T.device('cuda'),
                      po_name = '_po_cur.h5'):
+        
         if Method.lower() == 'popo':
             method = lensPO 
         '''sampling the model'''
@@ -206,7 +210,7 @@ class simple_Lens():
         
         
         '''get field on surface 1 !!!!'''
-        E_in, H_in,= feed.source(f1_p,f1_p_n)
+        E_in, H_in,= feed.source(f1_p,k)
         print(np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
         E_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
         H_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
@@ -262,8 +266,7 @@ class simple_Lens():
             saveh5_surf(file,f2,f2_n, self.f2_E_t, self.f2_H_t,T2,R2,name = 'f2')
 
     def source(self,
-               target,
-               k,
+               target,k,
                far_near = 'near'):
         # read the source on surface face2;
         face2, face2_n, H2 = read_cur(self.surf_cur_file)
@@ -281,6 +284,7 @@ class simple_Lens():
 
             
             if far_near.lower() == 'far':
+                print('*(**)')
                 target.E,target.H = PO_far_GPU(face2,face2_n,face2.w,
                                                target.grid,
                                                0,
@@ -296,7 +300,15 @@ class simple_Lens():
                                            1, # n refractive index
                                            device =T.device('cuda'))
         else:
-            pass
+            print('Here')
+            E,H = PO_GPU(face2,face2_n,face2.w,
+                                        target,
+                                        0,
+                                        H2,
+                                        k,
+                                        1, # n refractive index
+                                        device =T.device('cuda'))
+            return E, H
     ## sampling technique
     def sampling(self,
                  f1_N, surf_fuc,r1,r0=0,

@@ -441,7 +441,7 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.devi
         return F_E_x,F_E_y,F_E_z,F_H_x,F_H_y,F_H_z
     if device==T.device('cuda'):
         M_all=T.cuda.get_device_properties(0).total_memory
-        M_element=Je_in.x.itemsize * Je_in.x.size * 4
+        M_element=Je_in.x.itemsize * Je_in.x.size * 5
         cores=int(M_all/M_element/6)
         print('cores:',cores)
     else:
@@ -606,7 +606,8 @@ def PO_far_GPU(face1,face1_n,face1_dS,
     face1.Tensor2np()
     face1_n.Tensor2np()
     face2.Tensor2np()
-    T.cuda.empty_cache()    
+    T.cuda.empty_cache()  
+    T.cuda.synchronize()  
     return Field_E,Field_H   
     
 

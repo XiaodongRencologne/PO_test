@@ -77,7 +77,7 @@ class GaussiBeam():
         #self.coor_A = coor_angle
         #self.coor_D = coor_displacement
         self.coord_sys = coord_sys
-
+        self.k = k
         b = (np.log10((1+np.cos(self.A))/2)-self.T/20)/(k*(1-np.cos(self.A))*np.log10(np.exp(1)))
         w_2 = 2/k*(20*np.log10((1+np.cos(self.A))/2)-self.T)/(20*k*(1-np.cos(self.A))*np.log10(np.exp(1)))
         b = k*w_2/2
@@ -101,7 +101,7 @@ class GaussiBeam():
             #Nf = np.sqrt(Z0/B)
             #Nf = 1/k/np.sqrt(B)
             Nf = np.sqrt(4*np.pi/k**2/B)
-            def beam(Mirror,Mirror_n):
+            def beam(Mirror,k):
                 #Mirror=global2local(self.coor_A,self.coor_D,Mirror)
                 #Mirror_n=global2local(self.coor_A,[0,0,0],Mirror_n)
                 r,theta,phi=cart2spher(Mirror.x,Mirror.y,Mirror.z)
@@ -110,7 +110,7 @@ class GaussiBeam():
                 F = (1+np.cos(theta)) * np.exp(k*b*np.cos(theta)) * np.exp(-1j*k*r)/r
                 F = Nf*F
                 #print((1/Z0*np.abs(F)**2*Mirror.w*Mirror_n.N).sum())
-                print((k**2*np.abs(F)**2*Mirror.w*Mirror_n.N).sum())
+                #print((k**2*np.abs(F)**2*Mirror.w*Mirror_n.N).sum())
                 E = vector()
                 H = vector()
                 co,cx,crho=CO(theta,phi)
