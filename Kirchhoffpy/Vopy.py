@@ -34,6 +34,15 @@ class vector():
         self.x = T.tensor(self.x).to(device)
         self.y = T.tensor(self.y).to(device)
         self.z = T.tensor(self.z).to(device)
+    def Tensor2np(self):
+        if type(self.x).__module__==T.__name__:
+            self.x=self.x.cpu().numpy() 
+        if type(self.y).__module__==T.__name__:
+            self.y=self.y.cpu().numpy()
+        if type(self.z).__module__==T.__name__:
+            self.z=self.z.cpu().numpy()
+        else:
+            pass;
         
 
 

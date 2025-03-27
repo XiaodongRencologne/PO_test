@@ -373,8 +373,8 @@ def PO(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
         Field_E.x,Field_E.y,Field_E.z,Field_H.x,Field_H.y,Field_H.z=calculus2(face1.x,face1.y,face1.z,face2.x,face2.y,face2.z,
                                                                               face1_n.N,face1_dS,JE,JM);
     return Field_E,Field_H;
-
-def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
+"""
+def PO_GPU_0v(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
     # output field:
     N_f = face2.x.size
     Field_E=vector()
@@ -396,7 +396,7 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.devi
     N_current = face1.x.size()[0]
     face1_n.np2Tensor(device)
     face2.np2Tensor(device)
-    face1_dS =T.tensor(face1_dS).to(device)
+    face1_dS =T.tensor(face1_dS,dtype = T.float64).to(device)
     k = k*n
     Z = Z0/n/Z0
     def calcu(x2,y2,z2,Je):
@@ -477,6 +477,153 @@ def PO_GPU(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.devi
     face2.Tensor2np()
     T.cuda.empty_cache()
     return Field_E,Field_H
+"""
+
+def PO_GPU(face1,face1_n,face1_dS,
+           face2,Field_in_E,Field_in_H,
+           k,n,
+           device =T.device('cuda')):
+    """
+    Optimized Physical Optics (PO) GPU implementation for near-field calculations.
+
+    Parameters:
+        face1, face1_n, face1_dS: Surface 1 geometry, normals, and differential area.
+        face2: Surface 2 geometry.
+        Field_in_E, Field_in_H: Incident electric and magnetic fields.
+        k: Wave number.
+        n: Refractive index.
+        device: PyTorch device (default: CUDA).
+
+    Returns:
+        Field_E, Field_H: Resultant electric and magnetic fields on face2.
+    """
+
+    # Set data types based on precision
+    real_dtype = T.float64
+    complex_dtype = T.complex128
+
+    # Initialize output fields on GPU
+    N_f = face2.x.size
+    Field_E = vector()
+    Field_E.x = T.zeros(N_f, dtype=complex_dtype, device=device)
+    Field_E.y = T.zeros(N_f, dtype=complex_dtype, device=device)
+    Field_E.z = T.zeros(N_f, dtype=complex_dtype, device=device)
+    Field_H = vector()
+    Field_H.x = T.zeros(N_f, dtype=complex_dtype, device=device)
+    Field_H.y = T.zeros(N_f, dtype=complex_dtype, device=device)
+    Field_H.z = T.zeros(N_f, dtype=complex_dtype, device=device)
+
+    # Convert input fields to surface currents
+    Je_in = scalarproduct(2, crossproduct(face1_n, Field_in_H))
+    JE = T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1), 
+                  dtype=complex_dtype,
+                  device=device)
+
+    # Move face1 and face2 data to GPU
+    face1.np2Tensor(device)
+    face1_n.np2Tensor(device)
+    face2.np2Tensor(device)
+    face1_dS = T.tensor(face1_dS, dtype=real_dtype, device=device)
+    k = k*n
+    Z = Z0 / n/ Z0
+    def calculate_fields(x2, y2, z2, Je):
+        """
+        Helper function to calculate fields for a batch of points.
+        """
+        N_current = face1.x.size(0)
+        N_points = x2.size(0)
+        # Compute R and r
+        R = T.zeros((3, N_points, N_current), dtype=real_dtype, device=device)
+        R[0, :, :] = x2.view(-1, 1) - face1.x.ravel()
+        R[1, :, :] = y2.view(-1, 1) - face1.y.ravel()
+        R[2, :, :] = z2.view(-1, 1) - face1.z.ravel()
+        r = T.sqrt(T.sum(R**2, dim=0))
+
+        # Compute phase and amplitude terms
+        phase = -k * r
+        r2 = phase**2
+        r3 = phase**3
+        
+        # Electric field calculation
+        factor1=T.exp(1j * phase) * k**2
+        ee = factor1 * (
+            Je*(1j / phase - 1 / r2 - 1j / r3)
+            + T.sum(Je * R / r, dim = 0) *R / r * (-1j / phase + 3 / r2 + 3j / r3)
+        )
+        Ee=Z / (4 * T.pi) * T.sum(ee * face1_n.N * face1_dS , dim=-1)
+
+        # Magnetic field calculation
+        he2 = T.cross(Je, (R / r).type(complex_dtype) , dim=0) * (1 / r2) * (1 - 1j * phase)
+        He=T.sum(factor1 * he2 * face1_n.N * face1_dS, dim=-1) / (4 * T.pi)
+        return Ee, He
+    # Determine batch size based on available memory
+
+    if device == T.device('cuda'):
+        # Get total, allocated, and reserved memory
+        total_memory = T.cuda.get_device_properties(0).total_memory
+        allocated_memory = T.cuda.memory_allocated(0)
+        reserved_memory = T.cuda.memory_reserved(0)
+
+        # Calculate free memory
+        free_memory = total_memory - reserved_memory
+
+        # Adjust batch size based on free memory
+        element_size = JE.element_size() * JE.nelement()
+        batch_size = int(free_memory / element_size / 8)  # Reduce divisor for smaller batches
+        
+    else:
+        batch_size = os.cpu_count() * 20
+    """
+    if device == T.device('cuda'):
+        total_memory = T.cuda.get_device_properties(0).total_memory
+        element_size = JE.element_size() * JE.nelement()
+        batch_size = int(total_memory / element_size / 6)
+    else:
+        batch_size = os.cpu_count() * 20
+    """
+    print(f"Batch size: {batch_size}")
+    N = face2.x.nelement()
+    num_batches = N // batch_size
+
+    # Process batches
+    with T.no_grad():
+        for i in tqdm(range(num_batches)):
+            start = i * batch_size
+            end = (i + 1) * batch_size
+            Ee, He = calculate_fields(face2.x[start:end], 
+                                    face2.y[start:end], 
+                                    face2.z[start:end], 
+                                    JE)
+            Field_E.x[start:end] = Ee[0, :]
+            Field_E.y[start:end] = Ee[1, :]
+            Field_E.z[start:end] = Ee[2, :]
+            Field_H.x[start:end] = He[0, :]
+            Field_H.y[start:end] = He[1, :]
+            Field_H.z[start:end] = He[2, :]
+
+        # Process remaining points
+        if N % batch_size != 0:
+            start = num_batches * batch_size
+            Ee, He = calculate_fields(face2.x[start:], 
+                                    face2.y[start:], 
+                                    face2.z[start:], 
+                                    JE)
+            Field_E.x[start:] = Ee[0, :]
+            Field_E.y[start:] = Ee[1, :]
+            Field_E.z[start:] = Ee[2, :]
+            Field_H.x[start:] = He[0, :]
+            Field_H.y[start:] = He[1, :]
+            Field_H.z[start:] = He[2, :]
+
+    # Move tensors back to CPU only once
+    Field_E.Tensor2np()
+    Field_H.Tensor2np()
+    face1.Tensor2np()
+    face1_n.Tensor2np()
+    face2.Tensor2np()
+    T.cuda.empty_cache()
+
+    return Field_E, Field_H
 
 
 '''2.2 calculate the far-field beam'''    

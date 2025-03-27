@@ -85,6 +85,7 @@ def Guass_L_quadrs_Circ(a,r_phi,
 
     elif Phi_type=='less':
         N_phi_p=np.int_(np.round((max(N_phi,10)-10)*np.sqrt(rho))+10)
+        #N_phi_p=np.int_(np.round((max(N_phi,10)-10)*rho*(1/3))+10)
         rho=np.repeat(rho.ravel(),N_phi_p)
         w0=np.repeat(w0.ravel(),N_phi_p)
         phi=np.array([])
