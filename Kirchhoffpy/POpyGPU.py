@@ -4,9 +4,11 @@
 # In[1]:
 import os
 from tqdm import tqdm
-import numpy as np;
-import torch as T;
-from numba import njit, prange;
+import numpy as np
+import torch as T
+from torch.cuda.amp import autocast, GradScaler
+#T.set_num_threads(1)
+from numba import njit, prange
 from .Vopy import vector,crossproduct,scalarproduct,abs_v,dotproduct,sumvector
 
 import copy;
@@ -505,18 +507,18 @@ def PO_GPU(face1,face1_n,face1_dS,
     # Initialize output fields on GPU
     N_f = face2.x.size
     Field_E = vector()
-    Field_E.x = T.zeros(N_f, dtype=complex_dtype, device=device)
-    Field_E.y = T.zeros(N_f, dtype=complex_dtype, device=device)
-    Field_E.z = T.zeros(N_f, dtype=complex_dtype, device=device)
+    Field_E.x = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_E.y = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_E.z = T.zeros(N_f, dtype=T.complex128, device=device)
     Field_H = vector()
-    Field_H.x = T.zeros(N_f, dtype=complex_dtype, device=device)
-    Field_H.y = T.zeros(N_f, dtype=complex_dtype, device=device)
-    Field_H.z = T.zeros(N_f, dtype=complex_dtype, device=device)
+    Field_H.x = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H.y = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H.z = T.zeros(N_f, dtype=T.complex128, device=device)
 
     # Convert input fields to surface currents
     Je_in = scalarproduct(2, crossproduct(face1_n, Field_in_H))
     JE = T.tensor(np.append(np.append(Je_in.x,Je_in.y),Je_in.z).reshape(3,1,-1), 
-                  dtype=complex_dtype,
+                  dtype=T.complex128,
                   device=device)
 
     # Move face1 and face2 data to GPU
@@ -524,40 +526,57 @@ def PO_GPU(face1,face1_n,face1_dS,
     face1_n.np2Tensor(device)
     face2.np2Tensor(device)
     face1_dS = T.tensor(face1_dS, dtype=real_dtype, device=device)
-    k = k*n
-    Z = Z0 / n/ Z0
-    def calculate_fields(x2, y2, z2, Je):
+    ds = face1_n.N * face1_dS
+    print(ds.device)
+    k = T.tensor(k*n,device = device)
+    Z = T.tensor(Z0 / n/ Z0,device = device)
+    pi = T.tensor(4*T.pi, device = device)
+    J = T.tensor(0+1j, device = device)
+
+    Surf1 = T.stack([face1.x.ravel(), 
+                      face1.y.ravel(), 
+                      face1.z.ravel()], dim=0).reshape(3,1,-1).to(device)
+    Surf2 = T.stack([face2.x.ravel(), 
+                      face2.y.ravel(), 
+                      face2.z.ravel()], dim=0).reshape(3,-1,1).to(device)
+    print(JE.device, Surf1.device, Surf2.device, k.device, Z.device, pi.device)
+    
+
+    #@T.jit.script
+    def calculate_fields(s2,surf1,Je,JJ,K,z,PI,dS):
         """
         Helper function to calculate fields for a batch of points.
         """
-        N_current = face1.x.size(0)
-        N_points = x2.size(0)
         # Compute R and r
-        R = T.zeros((3, N_points, N_current), dtype=real_dtype, device=device)
-        R[0, :, :] = x2.view(-1, 1) - face1.x.ravel()
-        R[1, :, :] = y2.view(-1, 1) - face1.y.ravel()
-        R[2, :, :] = z2.view(-1, 1) - face1.z.ravel()
-        r = T.sqrt(T.sum(R**2, dim=0))
-
-        # Compute phase and amplitude terms
-        phase = -k * r
-        r2 = phase**2
-        r3 = phase**3
+        R = s2 - surf1
+        r = T.linalg.norm(R, dim=0) # Compute the norm directly
+        R_n = R / r  # Normalize the vector
+        del(R)
         
-        # Electric field calculation
-        factor1=T.exp(1j * phase) * k**2
-        ee = factor1 * (
-            Je*(1j / phase - 1 / r2 - 1j / r3)
-            + T.sum(Je * R / r, dim = 0) *R / r * (-1j / phase + 3 / r2 + 3j / r3)
-        )
-        Ee=Z / (4 * T.pi) * T.sum(ee * face1_n.N * face1_dS , dim=-1)
+        # Compute phase and amplitude terms
+        r_inv = r.clone()  # Avoid modifying `r` directly
+        r_inv.reciprocal_().mul_(-1 / K)  # In-place reciprocal and scaling
+        r2_inv = r_inv.clone().mul_(r_inv)  # In-place square
+        r3_inv = r2_inv.clone().mul_(r_inv)  # In-place cube
 
+        
+        factor1=(T.exp((-JJ * K) * r) * K**2)
         # Magnetic field calculation
-        he2 = T.cross(Je, (R / r).type(complex_dtype) , dim=0) * (1 / r2) * (1 - 1j * phase)
-        He=T.sum(factor1 * he2 * face1_n.N * face1_dS, dim=-1) / (4 * T.pi)
+        He=T.sum( (factor1 * r2_inv * (1 + (JJ * K) * r ) * dS) * T.cross(Je, (R_n).type(T.complex128) , dim=0), dim=-1) / PI
+
+        # Electric field calculation
+        #sum_result = T.sum(Je * R_n, dim = 0).to(device)
+        ee = factor1 * (
+            Je*(JJ* (r_inv - r3_inv) -  r2_inv )
+            +  T.sum(Je * R_n, dim = 0) * ( 3 * r2_inv + JJ * (3*r3_inv - r_inv )) * R_n
+        )
+        #del(sum_result)
+        Ee=z / PI * T.sum(ee * dS , dim=-1)
+        del(ee)
+
+
         return Ee, He
     # Determine batch size based on available memory
-
     if device == T.device('cuda'):
         # Get total, allocated, and reserved memory
         total_memory = T.cuda.get_device_properties(0).total_memory
@@ -586,43 +605,213 @@ def PO_GPU(face1,face1_n,face1_dS,
     num_batches = N // batch_size
 
     # Process batches
-    with T.no_grad():
-        for i in tqdm(range(num_batches)):
-            start = i * batch_size
-            end = (i + 1) * batch_size
-            Ee, He = calculate_fields(face2.x[start:end], 
-                                    face2.y[start:end], 
-                                    face2.z[start:end], 
-                                    JE)
-            Field_E.x[start:end] = Ee[0, :]
-            Field_E.y[start:end] = Ee[1, :]
-            Field_E.z[start:end] = Ee[2, :]
-            Field_H.x[start:end] = He[0, :]
-            Field_H.y[start:end] = He[1, :]
-            Field_H.z[start:end] = He[2, :]
+    
+    #with T.no_grad():
+    N_current = face1.x.size
+    for i in tqdm(range(num_batches),mininterval=5):
+        start = i * batch_size
+        end = (i + 1) * batch_size
+        #idx = T.arange(start, end, device ='cuda')
+        Ee, He = calculate_fields(Surf2[:,start:end,:],Surf1,JE,J,k,Z,pi,ds)
 
-        # Process remaining points
-        if N % batch_size != 0:
-            start = num_batches * batch_size
-            Ee, He = calculate_fields(face2.x[start:], 
-                                    face2.y[start:], 
-                                    face2.z[start:], 
-                                    JE)
-            Field_E.x[start:] = Ee[0, :]
-            Field_E.y[start:] = Ee[1, :]
-            Field_E.z[start:] = Ee[2, :]
-            Field_H.x[start:] = He[0, :]
-            Field_H.y[start:] = He[1, :]
-            Field_H.z[start:] = He[2, :]
+        Field_E.x[start:end] = Ee[0, :]
+        Field_E.y[start:end] = Ee[1, :]
+        Field_E.z[start:end] = Ee[2, :]
+        Field_H.x[start:end] = He[0, :]
+        Field_H.y[start:end] = He[1, :]
+        Field_H.z[start:end] = He[2, :]
 
-    # Move tensors back to CPU only once
+        '''
+        if i % 100 == 0:
+            T.cuda.empty_cache()  # Frees unused memory
+            T.cuda.synchronize()
+        '''
+            
+    # Process remaining points
+    if N % batch_size != 0:
+        start = num_batches * batch_size
+        Ee, He = calculate_fields(Surf2[:,start:,:],Surf1,JE,J,k,Z,pi,ds)
+        Field_E.x[start:] = Ee[0, :]
+        Field_E.y[start:] = Ee[1, :]
+        Field_E.z[start:] = Ee[2, :]
+        Field_H.x[start:] = He[0, :]
+        Field_H.y[start:] = He[1, :]
+        Field_H.z[start:] = He[2, :]
+
+    # Move tensors back to CPU only once    
     Field_E.Tensor2np()
     Field_H.Tensor2np()
     face1.Tensor2np()
     face1_n.Tensor2np()
     face2.Tensor2np()
     T.cuda.empty_cache()
+    T.cuda.synchronize()
+    return Field_E, Field_H
 
+
+
+def PO_GPU_2(face1,face1_n,face1_dS,
+           face2,Field_in_E,Field_in_H,
+           k,n,
+           device =T.device('cuda')):
+    """
+    Optimized Physical Optics (PO) GPU implementation for near-field calculations.
+
+    Parameters:
+        face1, face1_n, face1_dS: Surface 1 geometry, normals, and differential area.
+        face2: Surface 2 geometry.
+        Field_in_E, Field_in_H: Incident electric and magnetic fields.
+        k: Wave number.
+        n: Refractive index.
+        device: PyTorch device (default: CUDA).
+
+    Returns:
+        Field_E, Field_H: Resultant electric and magnetic fields on face2.
+    """
+
+    # Set data types based on precision
+    real_dtype = T.float64
+
+    # Initialize output fields on GPU
+    N_f = face2.x.size
+    Field_E = vector()
+    Field_E.x = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_E.y = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_E.z = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H = vector()
+    Field_H.x = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H.y = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H.z = T.zeros(N_f, dtype=T.complex128, device=device)
+
+    k_n = k * n
+    k0 = k * 1.0
+
+    ds = face1_dS*face1_n.N * k_n**2 /4/np.pi
+
+    # constent Number 
+    k_n = T.tensor(k_n,device = device)
+    k0 = T.tensor(k0,device = device)
+    Z = T.tensor(Z0 / n/ Z0,device = device)
+
+    # Convert input fields to surface currents
+    start_time = time.time()
+    J_in = scalarproduct(2*ds, crossproduct(face1_n, Field_in_H))
+    JE = T.tensor(np.append(np.append(J_in.x,J_in.y),J_in.z).reshape(3,1,-1), 
+                  dtype=T.complex128,
+                  device=device).contiguous()
+    
+    J_in = scalarproduct(2*ds, crossproduct(face1_n, Field_in_E))
+    JM = T.tensor(np.append(np.append(J_in.x,J_in.y),J_in.z).reshape(3,1,-1), 
+                  dtype=T.complex128,
+                  device=device).contiguous()
+
+    print('tiemusage:',time.time() - start_time)
+
+    # convert surface points into tensor
+    Surf1 = T.stack([T.tensor(face1.x.ravel()), 
+                     T.tensor(face1.y.ravel()), 
+                     T.tensor(face1.z.ravel())], dim=0).reshape(3,1,-1)
+    Surf1 = Surf1.contiguous().to(device)
+    Surf2 = T.stack([T.tensor(face2.x.ravel()), 
+                     T.tensor(face2.y.ravel()), 
+                     T.tensor(face2.z.ravel())], dim=0).reshape(3,-1,1).to(device)
+    Surf2 = Surf2.contiguous().to(device)
+
+    #N_current = face1.x.size
+    #N_target = face2.x.size 
+    #R_n_cpu = T.zeros((3,N_target,N_current),dtype = T.complex128,device = 'cpu', pin_memory=True)
+
+    #Memory_size = R_n_cpu.element_size() * R_n_cpu.nelement()
+
+
+    #@T.jit.script
+    '''
+    def calculate_R(point1,point2,K,R_n):
+        R = point2 - point1
+        r = T.linalg.norm(R, dim=0) # Compute the norm directly
+        R = R / r  # Normalize the vector
+        r.mul_(K)
+        Factor = T.exp(-1j*r)*(1+1j*r)/r**2
+        R_n = R * Factor
+    '''
+    #@T.jit.script
+    def calculate_fields(s2,K):
+        """
+        Helper function to calculate fields for a batch of points.
+        """
+        
+        # Compute R and r
+        R = (s2 - Surf1).contiguous()
+        r = T.linalg.norm(R, dim=0).contiguous().unsqueeze(0) # Compute the norm directly
+        R = R / r # Normalize the vector
+        r = r * K
+        R = R * T.exp(-1j*r)*(1+1j*r)/r**2
+        del(r,s2)
+        # Magnetic field calculation
+        he = T.cross(JE, R, dim=0).contiguous()
+        He = he.sum(dim=-1)
+        del(he)
+
+        # Electric field calculation
+        ee = T.cross(JM, R, dim = 0).contiguous()
+        Ee = ee.sum(dim = -1)
+        del(ee)
+        return Ee, He
+    # Determine batch size based on available memory
+    if device == T.device('cuda'):
+        # Get total, allocated, and reserved memory
+        total_memory = T.cuda.get_device_properties(0).total_memory
+        allocated_memory = T.cuda.memory_allocated(0)
+        reserved_memory = T.cuda.memory_reserved(0)
+
+        # Calculate free memory
+        free_memory = total_memory - reserved_memory
+
+        # Adjust batch size based on free memory
+        element_size = JE.element_size() * JE.nelement()
+        batch_size = int(free_memory / element_size / 6)
+    else:
+        batch_size = os.cpu_count() * 30
+
+    print(f"Batch size: {batch_size}")
+    N = face2.x.size
+    num_batches = N // batch_size
+
+    # Process batches
+    print(Surf2.device, Surf1.device, k_n.device)
+    print(Surf2.is_contiguous(), Surf1.is_contiguous(), k_n.is_contiguous())
+
+    with autocast():
+        with T.no_grad():
+            for i in tqdm(range(num_batches),mininterval=5):
+                start = i * batch_size
+                end = (i + 1) * batch_size
+                #idx = T.arange(start, end, device ='cuda')
+                Ee, He = calculate_fields(Surf2[:,start:end,:].contiguous() ,k_n)
+
+                Field_E.x[start:end] = Ee[0, :]
+                Field_E.y[start:end] = Ee[1, :]
+                Field_E.z[start:end] = Ee[2, :]
+                Field_H.x[start:end] = He[0, :]
+                Field_H.y[start:end] = He[1, :]
+                Field_H.z[start:end] = He[2, :]
+                    
+            # Process remaining points
+            if N % batch_size != 0:
+                start = num_batches * batch_size
+                Ee, He = calculate_fields(Surf2[:,start:,:].contiguous(),k_n)
+                Field_E.x[start:] = Ee[0, :]
+                Field_E.y[start:] = Ee[1, :]
+                Field_E.z[start:] = Ee[2, :]
+                Field_H.x[start:] = He[0, :]
+                Field_H.y[start:] = He[1, :]
+                Field_H.z[start:] = He[2, :]
+    # Move tensors back to CPU only once    
+    Field_E.Tensor2np()
+    Field_H.Tensor2np()
+
+    T.cuda.empty_cache()
+    T.cuda.synchronize()
     return Field_E, Field_H
 
 

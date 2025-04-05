@@ -4,7 +4,8 @@ import torch as T;
 from numba import njit, prange;
 from .Vopy import vector,crossproduct,scalarproduct,abs_v,dotproduct,sumvector
 
-from .POpyGPU import PO_GPU, PO_far_GPU
+from .POpyGPU import PO_GPU_2 as PO_GPU
+from .POpyGPU import PO_far_GPU
 
 import copy;
 import time;
@@ -38,28 +39,26 @@ def lensPO(face1,face1_n,face1_dS,
     #print('E')
     #printF(Field_in_E)
     f1_E_t,f1_E_r,f1_H_t,f1_H_r, p_n1 , T1, R1 = Fresnel_coeffi(n0,n,face1_n,Field_in_E,Field_in_H)
-    #print('T_n1')
-    #p_t_n1 = poyntingVector(f1_E_t,f1_H_t)
+    print('output poynting:')
+    p_t_n1 = poyntingVector(f1_E_t,f1_H_t)
     #p_t_n1 = scalarproduct(1/abs_v(p_t_n1),p_t_n1)
-    #printF(p_t_n1)
+    print(abs_v(p_t_n1).max())
 
-    
+    start_time = time.time()
     F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
                            face2,
                            f1_E_t,f1_H_t,
                            k,n,
                            device = device)
-    
+    print(time.time() - start_time)
     f2_E_t,f2_E_r,f2_H_t,f2_H_r, p_n2, T2, R2= Fresnel_coeffi(n,n0,face2_n,F2_in_E,F2_in_H)
-    
+
+    print('output poynting:')
+    p_t_n2 = poyntingVector(f2_E_t,f2_H_t)
+    #p_t_n1 = scalarproduct(1/abs_v(p_t_n1),p_t_n1)
+    print(abs_v(p_t_n2).max())
     #printF(p_n2)
-    '''
-    F_E,F_H = PO_GPU(face2,face2_n,face2_dS,
-                     face3,
-                     f2_E_t,f2_H_t,
-                     k,
-                     device = device)
-    '''
+    
     return F2_in_E,F2_in_H,f2_E_t,f2_E_r,f2_H_t,f2_H_r, f1_E_t,f1_E_r,f1_H_t,f1_H_r,T1,R1,T2,R2
 
 def lensPO_far(face1,face1_n,face1_dS,
@@ -123,7 +122,8 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     poynting_n = poyntingVector(E,H)
     A_poynting_n = abs_v(poynting_n)
     poynting_n = scalarproduct(1/A_poynting_n,poynting_n)
-    
+    print('input poynting vector maximum!')
+    print(A_poynting_n.max())
     # calculation the incident angle and refractive angle
     theta_i_cos = np.abs(dotproduct(v_n,poynting_n))
     theta_i_sin = np.sqrt(1 - theta_i_cos**2)

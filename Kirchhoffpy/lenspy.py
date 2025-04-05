@@ -9,6 +9,7 @@ import numpy as np
 import copy
 import h5py
 import torch as T
+
 import scipy
 from scipy.interpolate import CubicSpline
 
@@ -218,6 +219,7 @@ class simple_Lens():
         self.f_E_in = E_in
         self.f_H_in = H_in
         del(f1_p,f1_p_n)
+        """
         print('input power')
         print('poynting value max!')
         p_n = poyntingVector(self.f_E_in,self.f_H_in)
@@ -227,14 +229,19 @@ class simple_Lens():
         print('******')
         #print((1**2*epsilon*f1.w*np.abs(self.f_E_in.x)**2).sum())
         #print((mu*f1.w*np.abs(self.f_H_in.y)**2).sum())
-        
+
+        """
+
         '''double PO analysis!!!'''
+        
         self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
         self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r, T1, R1, T2, R2 = method(f1,f1_n,f1.w,
                                                                                         f2,f2_n,
                                                                                         self.f_E_in,self.f_H_in,
                                                                                         k,self.n,
                                                                                         device = device)
+        
+        """
         print('Transform f1')
         print('poynting value max!')
         p_n = poyntingVector(self.f1_E_t,self.f1_H_t)
@@ -252,6 +259,7 @@ class simple_Lens():
         p_n = poyntingVector(self.f2_E_t,self.f2_H_t)
         #print((abs_v(p_n)*f2.w).sum())
         print(k**2*(abs_v(p_n)*f2.w).sum())
+        """
 
         # save to h5 data file
         self.surf_cur_file = self.outfolder + self.name + po_name

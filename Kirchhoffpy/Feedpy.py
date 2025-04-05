@@ -116,8 +116,8 @@ class GaussiBeam():
                 co,cx,crho=CO(theta,phi)
                 if polarization.lower()=='x':
                     E=scalarproduct(F,co)
-                    #H=scalarproduct(F/Z0,cx)
                     H=scalarproduct(F,cx)
+                    #H=scalarproduct(F,cx)
                 elif polarization.lower()=='y':
                     #H=scalarproduct(F/Z0,co)
                     E=scalarproduct(F,cx)
