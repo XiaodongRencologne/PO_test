@@ -947,7 +947,118 @@ def PO_far_GPU(face1,face1_n,face1_dS,
     return Field_E,Field_H   
     
 
+def PO_far_GPU2(face1,face1_n,face1_dS,
+               face2,
+               Field_in_E,
+               Field_in_H,
+               k,
+               device =T.device('cuda')):
+    # output field:
+    N_f = face2.x.size
+    Field_E = vector()
+    Field_E.x = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_E.y = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_E.z = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H = vector()
+    Field_H.x = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H.y = T.zeros(N_f, dtype=T.complex128, device=device)
+    Field_H.z = T.zeros(N_f, dtype=T.complex128, device=device)
 
+    ds = face1_dS * face1_n.N * k**2 /4/np.pi
+
+
+    J_in=scalarproduct(2*ds,crossproduct(face1_n,Field_in_H))
+    JE=T.tensor(np.append(np.append(J_in.x,J_in.y),J_in.z).reshape(3,1,-1),
+                dtype = T.complex128).to(device)
+    
+    J_in = scalarproduct(2*ds, crossproduct(face1_n, Field_in_E))
+    JM = T.tensor(np.append(np.append(J_in.x,J_in.y),J_in.z).reshape(3,1,-1), 
+                  dtype=T.complex128,
+                  device=device).contiguous()
+    
+    # convert surface points into tensor
+    Surf1 = T.stack([T.tensor(face1.x.ravel()), 
+                     T.tensor(face1.y.ravel()), 
+                     T.tensor(face1.z.ravel())], dim=0).reshape(3,1,-1)
+    Surf1 = Surf1.contiguous().to(device)
+    Surf2 = T.stack([T.tensor(face2.x.ravel()), 
+                     T.tensor(face2.y.ravel()), 
+                     T.tensor(face2.z.ravel())], dim=0).reshape(3,-1,1).to(device)
+    Surf2 = Surf2.contiguous().to(device)
+
+    def calculate_fields(s2,K):
+        """
+        Helper function to calculate fields for a batch of points.
+        """
+        # Compute R and r
+        Phase = k * T.sum((s2 * Surf1).contiguous(),axis = 0).contiguous()
+        Phase =  T.exp(1j * Phase) #* ds
+        # Electric field calculation
+        ee = T.sum( JM * Phase, axis = -1 ).contiguous()
+        r = s2.reshape(3,-1).contiguous().to(dtype = T.complex128)
+        Ee = 1j * T.cross(r, ee, dim=0).contiguous()
+        # Magnetic field calculation
+        he = T.sum( JE * Phase, axis = -1 ).contiguous()
+        He = -1j /Z0 * T.cross(r, ee, dim=0).contiguous()
+
+        return Ee, He
+    
+    if device == T.device('cuda'):
+        # Get total, allocated, and reserved memory
+        total_memory = T.cuda.get_device_properties(0).total_memory
+        allocated_memory = T.cuda.memory_allocated(0)
+        reserved_memory = T.cuda.memory_reserved(0)
+
+        # Calculate free memory
+        free_memory = total_memory - reserved_memory
+
+        # Adjust batch size based on free memory
+        element_size = JE.element_size() * JE.nelement()
+        batch_size = int(free_memory / element_size / 6)
+    else:
+        batch_size = os.cpu_count() * 30
+
+    print(f"Batch size: {batch_size}")
+    N = face2.x.size
+    num_batches = N // batch_size
+
+    # Process batches
+    #print(Surf2.device, Surf1.device, k_n.device)
+    #print(Surf2.is_contiguous(), Surf1.is_contiguous(), k_n.is_contiguous())
+
+    with autocast():
+        with T.no_grad():
+            for i in tqdm(range(num_batches),mininterval=5):
+                start = i * batch_size
+                end = (i + 1) * batch_size
+                #idx = T.arange(start, end, device ='cuda')
+                Ee, He = calculate_fields(Surf2[:,start:end,:].contiguous() ,k)
+
+                Field_E.x[start:end] = Ee[0, :]
+                Field_E.y[start:end] = Ee[1, :]
+                Field_E.z[start:end] = Ee[2, :]
+                Field_H.x[start:end] = He[0, :]
+                Field_H.y[start:end] = He[1, :]
+                Field_H.z[start:end] = He[2, :]
+                    
+            # Process remaining points
+            if N % batch_size != 0:
+                start = num_batches * batch_size
+                Ee, He = calculate_fields(Surf2[:,start:,:].contiguous(),k)
+                Field_E.x[start:] = Ee[0, :]
+                Field_E.y[start:] = Ee[1, :]
+                Field_E.z[start:] = Ee[2, :]
+                Field_H.x[start:] = He[0, :]
+                Field_H.y[start:] = He[1, :]
+                Field_H.z[start:] = He[2, :]
+    # Move tensors back to CPU only once    
+    Field_E.Tensor2np()
+    Field_H.Tensor2np()
+
+    T.cuda.empty_cache()
+    T.cuda.synchronize()
+    return Field_E, Field_H
+ 
 
 def MATRIX(m1,m1_n,m1_dA,m2,Je_in,Jm_in,k):
     '''Field_in is current distribution'''

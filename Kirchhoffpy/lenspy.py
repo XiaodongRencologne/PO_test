@@ -20,7 +20,9 @@ from .coordinate_operations import Transform_global2local as global2local;
 from .field_storage import Spherical_grd
 
 from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO
-from .POpyGPU import PO_far_GPU,PO_far,PO_GPU,epsilon,mu
+from .POpyGPU import PO_far_GPU2 as PO_far_GPU
+from .POpyGPU import epsilon,mu
+from .POpyGPU import PO_GPU_2 as PO_GPU
 
 from .Vopy import vector,abs_v,scalarproduct, CO
 
@@ -110,6 +112,7 @@ def read_cur(filename):
     face = Coord()
     face_n = Coord()
     H = vector()
+    E = vector()
     print(filename)
     with h5py.File(filename,'r') as f:
         face.x = f['f2/x'][:].ravel()
@@ -123,7 +126,10 @@ def read_cur(filename):
         H.x = f['f2/Hx'][:].ravel()
         H.y = f['f2/Hy'][:].ravel()
         H.z = f['f2/Hz'][:].ravel()
-    return face, face_n, H
+        E.x = f['f2/Ex'][:].ravel()
+        E.y = f['f2/Ey'][:].ravel()
+        E.z = f['f2/Ez'][:].ravel()
+    return face, face_n, H, E
     
 class simple_Lens():
     def __init__(self,
@@ -277,7 +283,7 @@ class simple_Lens():
                target,k,
                far_near = 'near'):
         # read the source on surface face2;
-        face2, face2_n, H2 = read_cur(self.surf_cur_file)
+        face2, face2_n, H2, E2= read_cur(self.surf_cur_file)
         if isinstance(target,Spherical_grd):
             face2.x,face2.y,face2.z = self.coord_sys._toGlobal_coord(face2.x,face2.y,face2.z)
             face2.x,face2.y,face2.z = target.coord_sys.Global_to_local(face2.x,face2.y,face2.z)
@@ -288,6 +294,7 @@ class simple_Lens():
             face2_n.y = data[1,:]
             face2_n.z = data[2,:]
             H2.tocoordsys(matrix = np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
+            E2.tocoordsys(matrix = np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
             print(np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
 
             
@@ -295,14 +302,14 @@ class simple_Lens():
                 print('*(**)')
                 target.E,target.H = PO_far_GPU(face2,face2_n,face2.w,
                                                target.grid,
-                                               0,
+                                               E2,
                                                H2,
                                                k,
                                                device =T.device('cuda'))
             else:
                 target.E,target.H = PO_GPU(face2,face2_n,face2.w,
                                            target.grid,
-                                           0,
+                                           E2,
                                            H2,
                                            k,
                                            1, # n refractive index
@@ -311,7 +318,7 @@ class simple_Lens():
             print('Here')
             E,H = PO_GPU(face2,face2_n,face2.w,
                                         target,
-                                        0,
+                                        E2,
                                         H2,
                                         k,
                                         1, # n refractive index

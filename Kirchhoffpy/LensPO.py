@@ -5,7 +5,7 @@ from numba import njit, prange;
 from .Vopy import vector,crossproduct,scalarproduct,abs_v,dotproduct,sumvector
 
 from .POpyGPU import PO_GPU_2 as PO_GPU
-from .POpyGPU import PO_far_GPU
+from .POpyGPU import PO_far_GPU2 as PO_far_GPU
 
 import copy;
 import time;
@@ -168,7 +168,7 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     #print(poynting_n.z)
     #print(v_n.z)
     #print(s_n.y)
-    x_n = crossproduct(v_n,s_n)
+    x_n = crossproduct(s_n,v_n)
     print('test vx')
     print(abs_v(x_n).max(),abs_v(x_n).min())
 
@@ -191,8 +191,8 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     E_r = sumvector(E_r,scalarproduct(R_p,E_p_x))
     '''
     E_t_s = scalarproduct(T_s,E_s)
-    E_t_p_z = scalarproduct(T_p*theta_t_sin,E_p_z)
-    E_t_p_x = scalarproduct(T_p*d,E_p_x)
+    E_t_p_z = scalarproduct(T_p*theta_t_sin/theta_i_sin,E_p_z)
+    E_t_p_x = scalarproduct(T_p*d/a,E_p_x)
     E_t = sumvector(E_t_s,sumvector(E_t_p_x,E_t_p_z))
     E_r = sumvector(scalarproduct(R_s,E_s),scalarproduct(R_p,E_p))
 
@@ -207,9 +207,17 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     H_r = sumvector(scalarproduct(R_p,H_s),scalarproduct(R_s,H_p_z))
     H_r = sumvector(H_r,scalarproduct(R_s,E_p_x))
     '''
+    """
     H_t_s = scalarproduct(T_p*n2/n1,H_s)
     H_t_p_z = scalarproduct(T_s,H_p_z)#*theta_t_sin*n2/n1
-    H_t_p_x = scalarproduct(T_s*n2/n1*d/theta_i_cos,H_p_x)
+    H_t_p_x = scalarproduct(T_s*n2/n1*d/theta_i_cos,H_p_x)#
+    """
+
+
+    H_t_s = scalarproduct(T_p*n2/n1,H_s)
+    H_t_p_z = scalarproduct(T_s*n2/n1*theta_t_sin/theta_i_sin,H_p_z)
+    H_t_p_x = scalarproduct(T_s*n2/n1*d/a,H_p_x)
+
     H_t = sumvector(H_t_s,sumvector(H_t_p_x,H_t_p_z))
     #H_t = sumvector(scalarproduct(T_p*n2/n1,H_s),scalarproduct(T_s*n2/n1,H_p))
     H_r = sumvector(scalarproduct(R_p,H_s),scalarproduct(R_s,H_p))
@@ -309,3 +317,6 @@ def Fresnel_coeffi(n1,n2,v_n,E,H):
     #H_p.z[NN] = H.z[NN]
     return E_t,E_r,H_t,H_r, poynting_n, n2/n1*theta_t_cos/theta_i_cos*(T_p**2+T_s**2)/2, (R_p**2+R_s**2)/2
 """
+
+def Fresnel_Matrix(v_n,E,H,n1,n2):
+    pass
