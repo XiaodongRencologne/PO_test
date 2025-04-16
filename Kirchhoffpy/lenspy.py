@@ -41,15 +41,17 @@ def read_rsf(file,units= 'cm'):
     r = data[:,0]*factor
     z = data[:,1]*factor
     cs = CubicSpline(r,z)
+    cs_derivative = cs.derivative()
     
     def srf(x,y):
         r = np.sqrt(x**2+y**2)
         z = cs(r)
         n = Coord()
         # surface normal vector
+        r = np.where(r == 0, 10**(-10), r)
         n.z = -np.ones(x.shape)
-        n.x = cs(r,1)*x/r
-        n.y = cs(r,1)*y/r
+        n.x = cs_derivative(r)*x/r
+        n.y = cs_derivative(r)*y/r
         n.N= np.sqrt(n.x**2+n.y**2+1)
         n.x=n.x/n.N
         n.y=n.y/n.N
@@ -63,14 +65,9 @@ def read_rsf2(file,units= 'cm'):
     elif units == 'm':
         factor = 1000
     data = np.genfromtxt(file, skip_header = 2)
-    r = data[:,0]**2*factor**2
+    r = (data[:,0]*factor)**2
     z = data[:,1]*factor
     cs = CubicSpline(r,z)
-    factor= 1.0
-    if units == 'cm':
-        factor = 10
-    elif units == 'm':
-        factor = 1000
     def srf(x,y):
         r = x**2+y**2
         z = cs(r)
@@ -147,8 +144,8 @@ class simple_Lens():
         self.n = n # refractive index of the lens
         self.t = thickness # tickness of the lens in center.
         self.diameter = D # diameters
-        self.surf_fnc1 = read_rsf2(surface_file1,units= 'cm')
-        self.surf_fnc2 = read_rsf2(surface_file2,units= 'cm')
+        self.surf_fnc1 = read_rsf(surface_file1,units= 'cm')
+        self.surf_fnc2 = read_rsf(surface_file2,units= 'cm')
         self.coord_sys = coord_sys
 
         # define surface for sampling or for 3Dview
@@ -198,6 +195,7 @@ class simple_Lens():
         f2,f2_n = self.sampling(N2,self.surf_fnc2,self.r2,
                                          Sampling_type = sampling_type_f2,
                                          phi_type=phi_type_f2)
+        f2_n =scalarproduct(-1,f2_n)
         self.f2 = copy.copy(f2)
         self.f2_n = copy.copy(f2_n)
         f2 = local2global([np.pi,0,0], [0,0,self.t],f2)
@@ -281,7 +279,8 @@ class simple_Lens():
 
     def source(self,
                target,k,
-               far_near = 'near'):
+               far_near = 'near',
+               device = T.device('cuda')):
         # read the source on surface face2;
         face2, face2_n, H2, E2= read_cur(self.surf_cur_file)
         if isinstance(target,Spherical_grd):
@@ -297,7 +296,8 @@ class simple_Lens():
             E2.tocoordsys(matrix = np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
             print(np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g))
 
-            
+            #grid = copy.copy(target.grid)
+            #grid.x, grid.y, grid.z = target.coord_sys._toGlobal_coord(target.grid.x,target.grid.y,target.grid.z)
             if far_near.lower() == 'far':
                 print('*(**)')
                 target.E,target.H = PO_far_GPU(face2,face2_n,face2.w,
@@ -305,7 +305,7 @@ class simple_Lens():
                                                E2,
                                                H2,
                                                k,
-                                               device =T.device('cuda'))
+                                               device = device)
             else:
                 target.E,target.H = PO_GPU(face2,face2_n,face2.w,
                                            target.grid,

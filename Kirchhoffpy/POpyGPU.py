@@ -7,7 +7,9 @@ from tqdm import tqdm
 import numpy as np
 import torch as T
 from torch.cuda.amp import autocast, GradScaler
-#T.set_num_threads(1)
+cpu_cores = T.get_num_threads()
+print(cpu_cores)
+T.set_num_threads(cpu_cores*2)
 from numba import njit, prange
 from .Vopy import vector,crossproduct,scalarproduct,abs_v,dotproduct,sumvector
 
@@ -734,7 +736,7 @@ def PO_GPU_2(face1,face1_n,face1_dS,
         Factor = T.exp(-1j*r)*(1+1j*r)/r**2
         R_n = R * Factor
     '''
-    #@T.jit.script
+    
     def calculate_fields(s2,K):
         """
         Helper function to calculate fields for a batch of points.
@@ -771,7 +773,7 @@ def PO_GPU_2(face1,face1_n,face1_dS,
         element_size = JE.element_size() * JE.nelement()
         batch_size = int(free_memory / element_size / 6)
     else:
-        batch_size = os.cpu_count() * 30
+        batch_size = os.cpu_count() * 10
 
     print(f"Batch size: {batch_size}")
     N = face2.x.size
@@ -783,7 +785,7 @@ def PO_GPU_2(face1,face1_n,face1_dS,
 
     with autocast():
         with T.no_grad():
-            for i in tqdm(range(num_batches),mininterval=5):
+            for i in tqdm(prange(num_batches),mininterval=5):
                 start = i * batch_size
                 end = (i + 1) * batch_size
                 #idx = T.arange(start, end, device ='cuda')
@@ -887,6 +889,7 @@ def PO_far_GPU(face1,face1_n,face1_dS,
     rp[1,...] = face1.y.reshape((1,-1))
     rp[2,...] = face1.z.reshape((1,-1))
     face1_dS =T.tensor(face1_dS).to(device)
+    
     def calcu(x2,y2,z2):
         N_points = x2.size()[0]
         #print(N_points)
@@ -983,7 +986,7 @@ def PO_far_GPU2(face1,face1_n,face1_dS,
     Surf1 = Surf1.contiguous().to(device)
     Surf2 = T.stack([T.tensor(face2.x.ravel()), 
                      T.tensor(face2.y.ravel()), 
-                     T.tensor(face2.z.ravel())], dim=0).reshape(3,-1,1).to(device)
+                     T.tensor(face2.z.ravel())], dim=0).reshape(3,-1,1)
     Surf2 = Surf2.contiguous().to(device)
 
     def calculate_fields(s2,K):
@@ -999,7 +1002,7 @@ def PO_far_GPU2(face1,face1_n,face1_dS,
         Ee = 1j * T.cross(r, ee, dim=0).contiguous()
         # Magnetic field calculation
         he = T.sum( JE * Phase, axis = -1 ).contiguous()
-        He = -1j /Z0 * T.cross(r, ee, dim=0).contiguous()
+        He = -1j /Z0 * T.cross(r, he, dim=0).contiguous()
 
         return Ee, He
     
@@ -1026,31 +1029,30 @@ def PO_far_GPU2(face1,face1_n,face1_dS,
     #print(Surf2.device, Surf1.device, k_n.device)
     #print(Surf2.is_contiguous(), Surf1.is_contiguous(), k_n.is_contiguous())
 
-    with autocast():
-        with T.no_grad():
-            for i in tqdm(range(num_batches),mininterval=5):
-                start = i * batch_size
-                end = (i + 1) * batch_size
-                #idx = T.arange(start, end, device ='cuda')
-                Ee, He = calculate_fields(Surf2[:,start:end,:].contiguous() ,k)
+    with T.no_grad():
+        for i in tqdm(range(num_batches),mininterval=5):
+            start = i * batch_size
+            end = (i + 1) * batch_size
+            #idx = T.arange(start, end, device ='cuda')
+            Ee, He = calculate_fields(Surf2[:,start:end,:].contiguous() ,k)
 
-                Field_E.x[start:end] = Ee[0, :]
-                Field_E.y[start:end] = Ee[1, :]
-                Field_E.z[start:end] = Ee[2, :]
-                Field_H.x[start:end] = He[0, :]
-                Field_H.y[start:end] = He[1, :]
-                Field_H.z[start:end] = He[2, :]
-                    
-            # Process remaining points
-            if N % batch_size != 0:
-                start = num_batches * batch_size
-                Ee, He = calculate_fields(Surf2[:,start:,:].contiguous(),k)
-                Field_E.x[start:] = Ee[0, :]
-                Field_E.y[start:] = Ee[1, :]
-                Field_E.z[start:] = Ee[2, :]
-                Field_H.x[start:] = He[0, :]
-                Field_H.y[start:] = He[1, :]
-                Field_H.z[start:] = He[2, :]
+            Field_E.x[start:end] = Ee[0, :]
+            Field_E.y[start:end] = Ee[1, :]
+            Field_E.z[start:end] = Ee[2, :]
+            Field_H.x[start:end] = He[0, :]
+            Field_H.y[start:end] = He[1, :]
+            Field_H.z[start:end] = He[2, :]
+                
+        # Process remaining points
+        if N % batch_size != 0:
+            start = num_batches * batch_size
+            Ee, He = calculate_fields(Surf2[:,start:,:].contiguous(),k)
+            Field_E.x[start:] = Ee[0, :]
+            Field_E.y[start:] = Ee[1, :]
+            Field_E.z[start:] = Ee[2, :]
+            Field_H.x[start:] = He[0, :]
+            Field_H.y[start:] = He[1, :]
+            Field_H.z[start:] = He[2, :]
     # Move tensors back to CPU only once    
     Field_E.Tensor2np()
     Field_H.Tensor2np()

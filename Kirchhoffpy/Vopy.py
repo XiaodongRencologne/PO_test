@@ -59,24 +59,29 @@ class Fvector():
 3. vector operations
 '''
 def abs_v(A):
-    Power = A.x**2 + A.y**2 + A.z**2
+    Power = A.x**2 + A.y*A.y + A.z*A.z
     if isinstance(A.x,np.ndarray):
         return np.sqrt(Power)
     elif isinstance(A.x, T.Tensor):
         return T.sqrt(Power)
+def abs_v_Field(A):
+    Amp =np.sqrt(np.abs(A.x)**2 + np.abs(A.y)**2 + np.abs(A.z)**2)
+    phase = np.angle(A.x+A.y+A.z)
+    return Amp*np.exp(1j*phase)
     
 def dotproduct(A,B):
-    return A.x.ravel()*B.x.ravel()+A.y.ravel()*B.y.ravel()+A.z.ravel()*B.z.ravel();
+    scalar = A.x.ravel()*B.x.ravel()+A.y.ravel()*B.y.ravel()+A.z.ravel()*B.z.ravel()
+    return scalar
 
 def crossproduct(A,B):
     D = vector()
     if isinstance(A.x, np.ndarray):
         A=np.append(np.append(A.x,A.y),A.z).reshape(3,-1).T
         B=np.append(np.append(B.x,B.y),B.z).reshape(3,-1).T
-        C=np.cross(A,B,axisc=0)
-        D.x=C[0,:]
-        D.y=C[1,:]
-        D.z=C[2,:]
+        C=np.cross(A,B)
+        D.x=C[:,0]
+        D.y=C[:,1]
+        D.z=C[:,2]
     elif isinstance(A.x,T.Tensor):
         A = T.cat((A.x.ravel(),A.y.ravel(),A.z.ravel())).reshape(3,-1)
         B = T.cat((B.x.ravel(),B.y.ravel(),B.z.ravel())).reshape(3,-1)
@@ -84,7 +89,6 @@ def crossproduct(A,B):
             C = T.cross(A.type(T.cdouble),B.type(T.cdouble),dim=0)
         else:
             C = T.cross(A,B,dim=0)
-        
         D.x=C[0,:]
         D.y=C[1,:]
         D.z=C[2,:]
@@ -120,17 +124,18 @@ def crossproduct(A,B):
 """
 def scalarproduct(k,A):
     B=copy.copy(A)
-    B.x=k*A.x;
-    B.y=k*A.y;
-    B.z=k*A.z;    
-    return B;
+    #B=vector()
+    B.x=k*A.x.ravel()
+    B.y=k*A.y.ravel()
+    B.z=k*A.z.ravel()  
+    return B
 
 def sumvector(A,B):
-    C=vector();
-    C.x=A.x+B.x;
-    C.y=A.y+B.y;
-    C.z=A.z+B.z;
-    return C;    
+    C=vector()
+    C.x=A.x.ravel()+B.x.ravel()
+    C.y=A.y.ravel()+B.y.ravel()
+    C.z=A.z.ravel()+B.z.ravel()
+    return C  
 
 def CO(theta,phi):
     r0=vector();
