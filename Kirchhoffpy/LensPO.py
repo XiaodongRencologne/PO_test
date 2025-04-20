@@ -107,12 +107,21 @@ def Fresnel_coeffi(n1,n2,theta_i_cos):
     # calculate the angle of refraction
     theta_i_sin = np.sqrt(1 - theta_i_cos**2)
     theta_t_sin = n1/n2*theta_i_sin
+    NN_r = np.where(np.abs(theta_t_sin)>=1.0) # total reflection point
+    theta_t_sin[NN_r] =1.0
     theta_t_cos = np.sqrt(1 - theta_t_sin**2)
     t_p = 2*n1*theta_i_cos/(n2 * theta_i_cos + n1 * theta_t_cos)
     t_s = 2*n1*theta_i_cos/(n1 * theta_i_cos + n2 * theta_t_cos)
 
     r_p = (n2*theta_i_cos - n1*theta_t_cos)/(n2*theta_i_cos + n1*theta_t_cos)
     r_s = (n1*theta_i_cos - n2*theta_t_cos)/(n1*theta_i_cos + n2*theta_t_cos)
+
+    
+
+    r_p[NN_r] = 1.0
+    r_s[NN_r] = 1.0
+    t_p[NN_r] = 0.0
+    t_s[NN_r] = 0.0
     '''
     print('check the Fresnel coefficient')
     print(np.abs(r_s**2 + n2*theta_t_cos/theta_i_cos*t_s**2 - 1).max())
@@ -142,6 +151,8 @@ def calculate_Field_T_R(n1,n2,v_n,E,H):
     
     theta_i_sin = np.sqrt(1 - theta_i_cos**2)
     theta_t_sin = n1/n2*theta_i_sin
+    NN_r = np.where(np.abs(theta_t_sin)>=1.0) # total reflection point
+    theta_t_sin[NN_r] =1.0
     theta_t_cos = np.sqrt(1 - theta_t_sin**2)
     theta_t = np.arccos(theta_t_cos)
 

@@ -771,7 +771,7 @@ def PO_GPU_2(face1,face1_n,face1_dS,
 
         # Adjust batch size based on free memory
         element_size = JE.element_size() * JE.nelement()
-        batch_size = int(free_memory / element_size / 6)
+        batch_size = int(free_memory / element_size / 20)
     else:
         batch_size = os.cpu_count() * 10
 

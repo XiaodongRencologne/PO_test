@@ -173,7 +173,15 @@ class simple_Lens():
         )
         _ = self.widget.add_bounding_box(line_width=5, color='black')
         '''
-        
+    def r1(self,theta):
+        return np.ones(theta.shape)*self.diameter/2
+    def r2(self,theta):
+            return np.ones(theta.shape)*self.diameter/2
+
+    def convergence_test(self,
+                         feed,
+                         k):
+        pass   
     def PO_analysis(self,N1,N2,feed,k,
                      sampling_type_f1='rectangle',
                      phi_type_f1 = 'uniform',
@@ -181,10 +189,17 @@ class simple_Lens():
                      phi_type_f2 = 'uniform',
                      Method ='popo',
                      device = T.device('cuda'),
-                     po_name = '_po_cur.h5'):
+                     po_name = '_po_cur.h5',
+                     convergence_test = True):
         
         if Method.lower() == 'popo':
-            method = lensPO 
+            method = lensPO
+        elif Method.lower() == 'gopo':
+            pass
+        elif Method.lower() == 'A-po':
+            pass
+        elif Method.lower() == 'double-po':
+            pass
         '''sampling the model'''
         f1,f1_n = self.sampling(N1,self.surf_fnc1,self.r1,
                                           Sampling_type = sampling_type_f1,
@@ -381,45 +396,6 @@ class simple_Lens():
         direction =  np.column_stack((self.v_n1.x,self.v_n1.y,self.v_n1.z))
         self.widget.add_arrows(cent,direction*10,mag =1)
 
-        '''
-        cent = np.column_stack((self.v_x2,np.zeros(self.v_x2.shape),self.v_z2))
-        direction =  np.column_stack((self.v_n2.x,self.v_n2.y,self.v_n2.z))
-        self.widget.add_arrows(cent,direction*10,mag =1)
-        '''
-        '''
-        n1 = 1.0
-        Z1 = Z0/n1
-        n2 = 3
-        Z2 =Z0/n2
-        E = vector()
-        E.x = np.zeros(self.v_x1.shape,dtype = np.float64)
-        E.y = np.sqrt(Z1)*np.ones(self.v_x1.shape,dtype = np.float64)
-        E.z = np.zeros(self.v_x1.shape,dtype = np.float64)
-        E.totensor()
-
-        H = vector()
-        H.x = -np.sqrt(Z1)*np.ones(self.v_x1.shape,dtype = np.float64)/Z1
-        H.y = np.zeros(self.v_x1.shape,dtype = np.float64)
-        H.z = np.zeros(self.v_x1.shape,dtype = np.float64)
-        H.totensor()
-        
-        k_v1 = poyntingVector(E,H)
-        cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
-        direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
-        self.widget.add_arrows(cent,direction*10,mag =1)
-        self.v_n1.np2Tensor()
-
-        #print('input power:', abs_v(E)**2/Z1)
-        E_t,E_r,H_t,H_r = Fresnel_coeffi(n1,n2,self.v_n1,E,H)
-        
-        #print('output power:', (abs_v(E_t)**2/Z2).numpy())
-        #print('reflection power:', (abs_v(E_r)**2/Z1).numpy())
-        k_v1 = poyntingVector(E_t,H_t)
-        cent = np.column_stack((self.v_x1,np.zeros(self.v_x1.shape),self.v_z1))
-        direction =  np.column_stack((k_v1.x,k_v1.y,k_v1.z))
-        self.widget.add_arrows(cent,direction*10,mag =1)
-        #self.widget.show()
-        '''
     def view2(self,N1 = [1,11,1],N2 =[1,11,1]):
         if self.name+'_face1' in self.widget.actors.keys():
             self.widget.remove_actor(self.widget.actors[self.name+'_face1'])
@@ -488,9 +464,4 @@ class simple_Lens():
         cent = np.column_stack((f2.x,f2.y,f2.z))
         direction =  np.column_stack((-f2_n.x,-f2_n.y,-f2_n.z))
         self.widget.add_arrows(cent,direction*20,mag =1,name = self.name+'_n2')
-        
-    def r1(self,theta):
-        return np.ones(theta.shape)*self.diameter/2
-    def r2(self,theta):
-            return np.ones(theta.shape)*self.diameter/2
 # %%
