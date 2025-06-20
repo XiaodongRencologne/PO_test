@@ -19,7 +19,7 @@ from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 from .field_storage import Spherical_grd
 
-from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO
+from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO,lensPO_AR
 from .POpyGPU import PO_far_GPU2 as PO_far_GPU
 from .POpyGPU import epsilon,mu
 from .POpyGPU import PO_GPU_2 as PO_GPU
@@ -135,10 +135,14 @@ class simple_Lens():
                  widget,
                  coord_sys,
                  name = 'simplelens',
+                 AR_file = None,
+                 groupname = None,
                  Device = T.device('cuda'),
                  outputfolder = 'output/'):
         if not os.path.exists(outputfolder):
             os.makedirs(outputfolder)
+        self.AR_file = AR_file
+        self.groupname = groupname
         self.name = name # lens name
         self.outfolder = outputfolder
         self.n = n # refractive index of the lens
@@ -193,7 +197,10 @@ class simple_Lens():
                      convergence_test = True):
         
         if Method.lower() == 'popo':
-            method = lensPO
+            if self.AR_file is not None:
+                method = lensPO_AR
+            else:
+                method = lensPO
         elif Method.lower() == 'gopo':
             pass
         elif Method.lower() == 'A-po':
@@ -252,14 +259,23 @@ class simple_Lens():
         """
 
         '''double PO analysis!!!'''
-        
-        self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
-        self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r, T1, R1, T2, R2 = method(f1,f1_n,f1.w,
-                                                                                        f2,f2_n,
-                                                                                        self.f_E_in,self.f_H_in,
-                                                                                        k,self.n,
-                                                                                        device = device)
-        
+        if self.AR_file is not None:
+            self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
+            self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r, T1, R1, T2, R2 = method(f1,f1_n,f1.w,
+                                                                                            f2,f2_n,
+                                                                                            self.f_E_in,self.f_H_in,
+                                                                                            k,self.n,
+                                                                                            self.AR_file,
+                                                                                            self.groupname,
+                                                                                            device = device)
+        else:
+            self.f2_E,self.f2_H, self.f2_E_t, self.f2_E_r, self.f2_H_t,\
+            self.f2_H_r, self.f1_E_t, self.f1_E_r,  self.f1_H_t , self.f1_H_r, T1, R1, T2, R2 = method(f1,f1_n,f1.w,
+                                                                                            f2,f2_n,
+                                                                                            self.f_E_in,self.f_H_in,
+                                                                                            k,self.n,
+                                                                                            device = device)
+    
         """
         print('Transform f1')
         print('poynting value max!')
