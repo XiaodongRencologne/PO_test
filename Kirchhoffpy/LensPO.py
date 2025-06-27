@@ -36,21 +36,21 @@ def lensPO(face1,face1_n,face1_dS,
     
     # calculate the transmission and reflection on face 1.
     f1_E_t,f1_E_r,f1_H_t,f1_H_r, p_n1 , T1, R1, NN = calculate_Field_T_R(n0,n,face1_n,Field_in_E,Field_in_H)
-    print('output poynting:')
-    p_t_n1 = poyntingVector(f1_E_t,f1_H_t)
-    print(abs_v(p_t_n1).max())
+    #print('output poynting:')
+    #p_t_n1 = poyntingVector(f1_E_t,f1_H_t)
+    #print(abs_v(p_t_n1).max())
     start_time = time.time()
     F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
                            face2,
                            f1_E_t,f1_H_t,
                            k,n,
                            device = device)
-    print(time.time() - start_time)
+    #print(time.time() - start_time)
     f2_E_t,f2_E_r,f2_H_t,f2_H_r, p_n2, T2, R2, NN= calculate_Field_T_R(n,n0,face2_n,F2_in_E,F2_in_H)
-    print('output poynting:')
+    #print('output poynting:')
     p_t_n2 = poyntingVector(f2_E_t,f2_H_t)
     #p_t_n1 = scalarproduct(1/abs_v(p_t_n1),p_t_n1)
-    print(abs_v(p_t_n2).max())
+    #print(abs_v(p_t_n2).max())
     #printF(p_n2)
     
     return F2_in_E,F2_in_H,f2_E_t,f2_E_r,f2_H_t,f2_H_r, f1_E_t,f1_E_r,f1_H_t,f1_H_r,T1,R1,T2,R2
@@ -92,21 +92,21 @@ def lensPO_AR(face1,face1_n,face1_dS,
     AR1, AR2 = read_Fresnel_coeffi_AR(AR_filename, groupname, n0, n)
     # calculate the transmission and reflection on face 1.
     f1_E_t,f1_E_r,f1_H_t,f1_H_r, p_n1 , T1, R1, NN = calculate_Field_T_R_AR(n0,n,face1_n,Field_in_E,Field_in_H,AR1)
-    print('output poynting:')
+    #print('output poynting:')
     p_t_n1 = poyntingVector(f1_E_t,f1_H_t)
-    print(abs_v(p_t_n1).max())
+    #print(abs_v(p_t_n1).max())
     start_time = time.time()
     F2_in_E,F2_in_H = PO_GPU(face1,face1_n,face1_dS,
                            face2,
                            f1_E_t,f1_H_t,
                            k,n,
                            device = device)
-    print(time.time() - start_time)
+    #print(time.time() - start_time)
     f2_E_t,f2_E_r,f2_H_t,f2_H_r, p_n2, T2, R2, NN= calculate_Field_T_R_AR(n,n0,face2_n,F2_in_E,F2_in_H,AR2)
-    print('output poynting:')
+    #print('output poynting:')
     p_t_n2 = poyntingVector(f2_E_t,f2_H_t)
     #p_t_n1 = scalarproduct(1/abs_v(p_t_n1),p_t_n1)
-    print(abs_v(p_t_n2).max())
+    #print(abs_v(p_t_n2).max())
     #printF(p_n2)
     
     return F2_in_E,F2_in_H,f2_E_t,f2_E_r,f2_H_t,f2_H_r, f1_E_t,f1_E_r,f1_H_t,f1_H_r,T1,R1,T2,R2
@@ -178,7 +178,7 @@ def calculate_Field_T_R(n1,n2,v_n,E,H):
     theta_i_cos = dotproduct(v_n,k_i)
     theta_i = np.arccos(theta_i_cos)
     if np.sum(theta_i_cos > 0) < np.sum(theta_i_cos < 0):
-        print('#$%^&&*&*())_')
+        #print('#$%^&&*&*())_')
         v_n = scalarproduct(-1,v_n)
         theta_i_cos = np.abs(theta_i_cos)
         theta_i = np.arccos(theta_i_cos)
@@ -203,12 +203,12 @@ def calculate_Field_T_R(n1,n2,v_n,E,H):
     # 2. calculate the vector s that is perpendicular to the plane of incidence.
     s = crossproduct(k_i,v_n)
     s_A = abs_v(s)#/(abs_v(v_n)*abs_v(k_i))
-    print('check the sin(theta_i)')
+    #print('check the sin(theta_i)')
     #print(s_A.reshape(11,11))
     threshold = 10**(-18)
     NN = np.where(s_A <= threshold)
     if NN[0].size != 0:
-        print('weird data!!!!!!!')
+        #print('weird data!!!!!!!')
         ref_vector = np.array([1.0,0.0,0.0],dtype = np.float64)
         ref_vector2 = np.array([0.0,1.0,0.0],dtype = np.float64)
         for i in NN[0]:
@@ -273,14 +273,14 @@ def calculate_Field_T_R(n1,n2,v_n,E,H):
     H_r = scalarproduct(n1,crossproduct(k_r,E_r))
     H_t = scalarproduct(n2,crossproduct(k_t,E_t))
 
-    print('##############')
+    #print('##############')
     poynting_t = poyntingVector(E_t,H_t)
     poynting_t_A = abs_v(poynting_t)
     poynting_r = poyntingVector(E_r,H_r)
     poynting_r_A = abs_v(poynting_r)
-    print('check energy conservation!')
-    print('check the poynting vector')  
-    print(poynting_i_A.max(),poynting_i_A.min())
+    #print('check energy conservation!')
+    #print('check the poynting vector')  
+    #print(poynting_i_A.max(),poynting_i_A.min())
     #error = np.abs(poynting_t_A*theta_t_cos + poynting_r_A*theta_i_cos - theta_i_cos*poynting_i_A).reshape(11,11)
     
     #N=3
@@ -335,8 +335,8 @@ def Creat_Fresnel_coeffi_AR(theta_i,t_p,r_p,t_s,r_s,n1,n2):
     def Fresnel_coeffi_AR2(theta):
         theta_t_sin = n2*np.sin(theta)/n1
         NN_t = np.where(np.abs(theta_t_sin) >= 1.0) # total reflection point
-        print(NN_t)
-        print('**************')
+        #print(NN_t)
+        #print('**************')
         theta_t_sin[NN_t] = 1.0
         theta_t = np.arcsin(theta_t_sin)
         factor = (n2/n1)* (np.cos(theta)/np.cos(theta_t))
@@ -408,12 +408,12 @@ def calculate_Field_T_R_AR(n1,n2,
     # 2. calculate the vector s that is perpendicular to the plane of incidence.
     s = crossproduct(k_i,v_n)
     s_A = abs_v(s)#/(abs_v(v_n)*abs_v(k_i))
-    print('check the sin(theta_i)')
+    #print('check the sin(theta_i)')
     #print(s_A.reshape(11,11))
     threshold = 10**(-18)
     NN = np.where(s_A <= threshold)
     if NN[0].size != 0:
-        print('weird data!!!!!!!')
+        #print('weird data!!!!!!!')
         ref_vector = np.array([1.0,0.0,0.0],dtype = np.float64)
         ref_vector2 = np.array([0.0,1.0,0.0],dtype = np.float64)
         for i in NN[0]:
@@ -466,13 +466,13 @@ def calculate_Field_T_R_AR(n1,n2,
     H_r = scalarproduct(n1,crossproduct(k_r,E_r))
     H_t = scalarproduct(n2,crossproduct(k_t,E_t))
 
-    print('##############')
+    #print('##############')
     poynting_t = poyntingVector(E_t,H_t)
     poynting_t_A = abs_v(poynting_t)
     poynting_r = poyntingVector(E_r,H_r)
     poynting_r_A = abs_v(poynting_r)
-    print('check energy conservation!')
-    print('check the poynting vector')  
-    print(poynting_i_A.max(),poynting_i_A.min())
+    #print('check energy conservation!')
+    #print('check the poynting vector')  
+    #print(poynting_i_A.max(),poynting_i_A.min())
     
     return E_t,E_r,H_t,H_r, poynting_i, n2/n1*theta_t_cos/theta_i_cos*(t_p**2+t_s**2)/2, (r_p**2+r_s**2)/2,NN

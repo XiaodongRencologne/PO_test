@@ -227,8 +227,8 @@ class simple_Lens():
         f1_p_n = copy.copy(f1_n)
         f1_p.x,f1_p.y,f1_p.z = self.coord_sys._toGlobal_coord(f1_p.x,f1_p.y,f1_p.z)
         f1_p.x,f1_p.y,f1_p.z = feed.coord_sys.Global_to_local(f1_p.x,f1_p.y,f1_p.z)
-        f1_p_n.x,f1_p_n.y,f1_p_n.z = self.coord_sys._toGlobal_coord(f1_p_n.x,f1_p_n.y,f1_p_n.z)
-        f1_p_n.x,f1_p_n.y,f1_p_n.z = feed.coord_sys.Global_to_local(f1_p_n.x,f1_p_n.y,f1_p_n.z)
+        #f1_p_n.x,f1_p_n.y,f1_p_n.z = self.coord_sys._toGlobal_coord(f1_p_n.x,f1_p_n.y,f1_p_n.z)
+        #f1_p_n.x,f1_p_n.y,f1_p_n.z = feed.coord_sys.Global_to_local(f1_p_n.x,f1_p_n.y,f1_p_n.z)
         data = np.matmul(np.matmul(feed.coord_sys.mat_g_l,self.coord_sys.mat_l_g),
                          np.array([f1_p_n.x,f1_p_n.y,f1_p_n.z]))
         f1_p_n.x = data[0,:]
@@ -238,10 +238,10 @@ class simple_Lens():
         
         '''get field on surface 1 !!!!'''
         E_in, H_in,= feed.source(f1_p,k)
-        print(np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
+        #print(np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
+ 
         E_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
         H_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
-        
         self.f_E_in = E_in
         self.f_H_in = H_in
         del(f1_p,f1_p_n)

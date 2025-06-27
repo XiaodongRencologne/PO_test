@@ -707,7 +707,7 @@ def PO_GPU_2(face1,face1_n,face1_dS,
                   dtype=T.complex128,
                   device=device).contiguous()
 
-    print('tiemusage:',time.time() - start_time)
+    #print('tiemusage:',time.time() - start_time)
 
     # convert surface points into tensor
     Surf1 = T.stack([T.tensor(face1.x.ravel()), 
@@ -780,8 +780,8 @@ def PO_GPU_2(face1,face1_n,face1_dS,
     num_batches = N // batch_size
 
     # Process batches
-    print(Surf2.device, Surf1.device, k_n.device)
-    print(Surf2.is_contiguous(), Surf1.is_contiguous(), k_n.is_contiguous())
+    #print(Surf2.device, Surf1.device, k_n.device)
+    #print(Surf2.is_contiguous(), Surf1.is_contiguous(), k_n.is_contiguous())
 
     with autocast():
         with T.no_grad():

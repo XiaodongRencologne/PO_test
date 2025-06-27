@@ -21,7 +21,7 @@ class vector():
         self.y=np.array([])
         self.z=np.array([])
     def tocoordsys(self,matrix=None):
-        if matrix is not None:
+        if matrix is None:
             self.x=self.x
             self.y=self.y
             self.z=self.z
