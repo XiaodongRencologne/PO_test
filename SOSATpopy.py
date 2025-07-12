@@ -157,7 +157,7 @@ class sosat:
         dx, dy, dz = self.feedpos[0], self.feedpos[1], self.feedpos[2]
         dAx, dAy, dAz = self.feedrot[0], self.feedrot[1], self.feedrot[2]
         picture_fname1 = self.outputfolder +str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+output_picture_name
-        picture_fname1 = self.outputfolder +str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'rotated_'+output_picture_name
+        picture_fname2 = self.outputfolder +str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'rotated_'+output_picture_name
         x, y, Ex, Ey, Ez = field_storage.read_grd(field_name)
         E = vector()
         E.x = Ex
@@ -172,9 +172,16 @@ class sosat:
         E_cx = dotproduct(E,cx)
         power_beam = np.abs(E_co)**2 + np.abs(E_cx)**2 
         peak = power_beam.max()
-        NN = np.where((np.abs(E_co)**2 + np.abs(E_cx)**2 )/peak > 10**(-15/10))[0]
+        print('Gain',10*np.log10(peak))
+        NN = np.where((np.abs(E_co)**2 + np.abs(E_cx)**2 )/peak > 10**(-90/10))[0]
+        print(np.log10(np.abs(E_co).max()**2)*10,np.log10(np.abs(E_cx).max()**2)*10)
+
         r= polar_angle.polarization_angle(np.concatenate((E_co[NN],E_cx[NN])).reshape(2,-1))
         print('rotation angle method 3: ',r.x*180/np.pi-dAz, r.status)
+        r2= polar_angle.polarization_angle_method2(np.concatenate((E_co[NN],E_cx[NN])).reshape(2,-1))
+        print('rotation angle method 2: ',r2.x*180/np.pi-dAz, r2.status)
+        r1= polar_angle.polarization_angle_method1(np.concatenate((E_co[NN],E_cx[NN])).reshape(2,-1))
+        print('rotation angle method 1: ',r1.x*180/np.pi-dAz, r1.status)
         Beam_new = polar_angle.rotation_angle(r.x,np.concatenate((E_co,E_cx)).reshape(2,-1))
         E_co_new = Beam_new[0,:]
         E_cx_new = Beam_new[1,:]
@@ -202,5 +209,6 @@ class sosat:
         p3 = ax[0].pcolor(x,y, 10*np.log10(np.abs(E_co_new.reshape(Ny,Nx))**2),vmax = vmax,vmin= vmax-60)
         p4 = ax[1].pcolor(x,y, 10*np.log10(np.abs(E_cx_new.reshape(Ny,Nx))**2),vmax = vmax,vmin= vmax-60)
         cbar = fig.colorbar(p3, ax=[ax[0], ax[1]], orientation='vertical', fraction=0.05, pad=0.1)
-        plt.savefig(picture_fname1, dpi=300)
+        plt.savefig(picture_fname2, dpi=300)
         plt.show()
+        return r.x*180/np.pi-dAz
