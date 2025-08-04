@@ -35,6 +35,8 @@ class sosat:
         self.feedrot = feedrot
         ## 1.  define coordinate system
         dx, dy, dz = feedpos[0], feedpos[1], feedpos[2]
+        self.dx = dx
+        self.dy = dy
         dAx, dAy, dAz = feedrot[0], feedrot[1], feedrot[2]
         eff_focal_length = 569.56 #mm
         coord_ref = coordinate.coord_sys([0,0,0],[0,0,0],axes = 'xyz')
@@ -127,7 +129,7 @@ class sosat:
                             sampling_type_f2='polar',
                             phi_type_f2 = sampling_type ,
                             po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5',
-                            Method ='POPO')
+                            Method ='POPO',x0=self.dx,y0=self.dy)
         self.L2.PO_analysis([1,L2_N1[0],L2_N1[1],1],
                             [1,L2_N2[0],L2_N2[1],1],
                             self.L3,self.k,
@@ -136,7 +138,7 @@ class sosat:
                             sampling_type_f2='polar',
                             phi_type_f2 = sampling_type ,
                             po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5',
-                            Method ='POPO')
+                            Method ='POPO',x0=self.dx,y0=self.dy)
         self.L1.PO_analysis([1,L1_N1[0],L1_N1[1],1],
                             [1,L1_N2[0],L1_N2[1],1],
                             self.L2,self.k,

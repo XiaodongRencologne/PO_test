@@ -252,7 +252,10 @@ def Kirchhoff_far(face1,face1_n,face1_dS,face2,cos_in,Field1,k,Keepmatrix=False,
    3.1 'Physical optics' to calculate near field
    3.2 'far' used to calculate far field
 '''
-def PO(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,parallel=True):
+def PO(face1,face1_n,face1_dS,
+    face2,
+    Field_in_E,Field_in_H,
+    k,parallel=True):
     # output field:
     Field_E=vector();
     Field_H=vector();    
@@ -484,7 +487,8 @@ def PO_GPU_0v(face1,face1_n,face1_dS,face2,Field_in_E,Field_in_H,k,n,device =T.d
 """
 
 def PO_GPU(face1,face1_n,face1_dS,
-           face2,Field_in_E,Field_in_H,
+           face2,
+           Field_in_E,Field_in_H,
            k,n,
            device =T.device('cuda')):
     """
@@ -593,7 +597,8 @@ def PO_GPU(face1,face1_n,face1_dS,
         batch_size = int(free_memory / element_size / 8)  # Reduce divisor for smaller batches
         
     else:
-        batch_size = os.cpu_count() * 20
+        batch_size = os.cpu_count() * 10
+        T.set_num_threads(os.cpu_count())
     """
     if device == T.device('cuda'):
         total_memory = T.cuda.get_device_properties(0).total_memory
@@ -653,7 +658,8 @@ def PO_GPU(face1,face1_n,face1_dS,
 
 
 def PO_GPU_2(face1,face1_n,face1_dS,
-           face2,Field_in_E,Field_in_H,
+           face2,
+           Field_in_E,Field_in_H,
            k,n,
            device =T.device('cuda')):
     """
@@ -860,7 +866,7 @@ def PO_far_GPU(face1,face1_n,face1_dS,
                face2,
                Field_in_E,
                Field_in_H,
-               k,
+               k,n=1,
                device =T.device('cuda')):
     # output field:
     N_f = face2.x.size

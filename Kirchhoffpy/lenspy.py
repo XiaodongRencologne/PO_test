@@ -178,15 +178,22 @@ class simple_Lens():
         _ = self.widget.add_bounding_box(line_width=5, color='black')
         '''
     def r1(self,theta):
-        return np.ones(theta.shape)*self.diameter/2
+        x0=self.x1
+        y0=self.y1
+        R = self.diameter/2
+        return -(x0*np.cos(theta)+y0*np.sin(theta)) + np.sqrt(R**2-(x0*np.sin(theta)-y0*np.cos(theta))**2)
+        #return np.ones(theta.shape)*self.diameter/2
     def r2(self,theta):
-            return np.ones(theta.shape)*self.diameter/2
+        x0=self.x2
+        y0=self.y2
+        R = self.diameter/2
+        return -(x0*np.cos(theta)+y0*np.sin(theta)) + np.sqrt(R**2-(x0*np.sin(theta)-y0*np.cos(theta))**2)
 
     def convergence_test(self,
                          feed,
                          k):
         pass   
-    def PO_analysis(self,N1,N2,feed,k,
+    def PO_analysis(self,N1,N2,source,k,
                      sampling_type_f1='rectangle',
                      phi_type_f1 = 'uniform',
                      sampling_type_f2='rectangle',
@@ -194,7 +201,12 @@ class simple_Lens():
                      Method ='popo',
                      device = T.device('cuda'),
                      po_name = '_po_cur.h5',
+                     x0=0,y0=0,
                      convergence_test = True):
+        self.x1 =x0
+        self.y1 =y0
+        self.x2 =x0
+        self.y2 =y0
         
         if Method.lower() == 'popo':
             if self.AR_file is not None:
@@ -210,13 +222,13 @@ class simple_Lens():
         '''sampling the model'''
         f1,f1_n = self.sampling(N1,self.surf_fnc1,self.r1,
                                           Sampling_type = sampling_type_f1,
-                                          phi_type=phi_type_f1)
+                                          phi_type=phi_type_f1,x0 = x0,y0 = y0)
         
         #f1_n =scalarproduct(1,f1_n)
         
         f2,f2_n = self.sampling(N2,self.surf_fnc2,self.r2,
                                          Sampling_type = sampling_type_f2,
-                                         phi_type=phi_type_f2)
+                                         phi_type=phi_type_f2,x0 = x0,y0 = y0)
         f2_n =scalarproduct(-1,f2_n)
         self.f2 = copy.copy(f2)
         self.f2_n = copy.copy(f2_n)
@@ -226,10 +238,10 @@ class simple_Lens():
         f1_p = copy.copy(f1)
         f1_p_n = copy.copy(f1_n)
         f1_p.x,f1_p.y,f1_p.z = self.coord_sys._toGlobal_coord(f1_p.x,f1_p.y,f1_p.z)
-        f1_p.x,f1_p.y,f1_p.z = feed.coord_sys.Global_to_local(f1_p.x,f1_p.y,f1_p.z)
+        f1_p.x,f1_p.y,f1_p.z = source.coord_sys.Global_to_local(f1_p.x,f1_p.y,f1_p.z)
         #f1_p_n.x,f1_p_n.y,f1_p_n.z = self.coord_sys._toGlobal_coord(f1_p_n.x,f1_p_n.y,f1_p_n.z)
         #f1_p_n.x,f1_p_n.y,f1_p_n.z = feed.coord_sys.Global_to_local(f1_p_n.x,f1_p_n.y,f1_p_n.z)
-        data = np.matmul(np.matmul(feed.coord_sys.mat_g_l,self.coord_sys.mat_l_g),
+        data = np.matmul(np.matmul(source.coord_sys.mat_g_l,self.coord_sys.mat_l_g),
                          np.array([f1_p_n.x,f1_p_n.y,f1_p_n.z]))
         f1_p_n.x = data[0,:]
         f1_p_n.y = data[1,:]
@@ -237,11 +249,11 @@ class simple_Lens():
         
         
         '''get field on surface 1 !!!!'''
-        E_in, H_in,= feed.source(f1_p,k)
+        E_in, H_in,= source.source(f1_p,k)
         #print(np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
  
-        E_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
-        H_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
+        E_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,source.coord_sys.mat_l_g))
+        H_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,source.coord_sys.mat_l_g))
         self.f_E_in = E_in
         self.f_H_in = H_in
         del(f1_p,f1_p_n)
@@ -301,10 +313,7 @@ class simple_Lens():
         with h5py.File(self.surf_cur_file,'w') as file:
             #self.f2_E_t.x = self.f2_E_t.x.reshape(N2[2],N2[0]) 
             #self.f2_E_t.y = self.f2_E_t.y.reshape(N2[2],N2[0]) 
-            #self.f2_E_t.z = self.f2_E_t.z.reshape(N2[2],N2[0]) 
-            #self.f2_H_t.x = self.f2_H_t.x.reshape(N2[2],N2[0]) 
-            #self.f2_H_t.y = self.f2_H_t.y.reshape(N2[2],N2[0]) 
-            #self.f2_H_t.z = self.f2_H_t.z.reshape(N2[2],N2[0]) 
+            #self.f2_E_t.z = self.f2_E_t.z.reshape(N2[2],N2[0]) (
             saveh5_surf(file,f1,f1_n, self.f_E_in, self.f_H_in,T1,R1,name = 'f1')
             saveh5_surf(file,f2,f2_n, self.f2_E_t, self.f2_H_t,T2,R2,name = 'f2')
 
@@ -359,7 +368,7 @@ class simple_Lens():
     def sampling(self,
                  f1_N, surf_fuc,r1,r0=0,
                  Sampling_type = 'polar',
-                 phi_type = 'uniform'):
+                 phi_type = 'uniform',x0 = 0, y0 = 0):
         '''
         sampling_type = 'Gaussian' / 'uniform'
         '''
@@ -367,10 +376,13 @@ class simple_Lens():
         #f2 = Coord()
 
         if Sampling_type == 'polar':
+            print('sampling type :', phi_type)
             f1.x, f1.y, f1.w= Guass_L_quadrs_Circ(0,r1,
                                         f1_N[0],f1_N[1],
                                         0,2*np.pi,f1_N[2],
                                         Phi_type=phi_type)
+            f1.x = f1.x + x0
+            f1.y = f1.y + y0
         elif Sampling_type == 'rectangle':
             f1.x, f1.y, f1.w = Gauss_L_quadrs2d(-self.diameter/2,self.diameter/2,f1_N[0],f1_N[1],
                                           -self.diameter/2,self.diameter/2,f1_N[2],f1_N[3])

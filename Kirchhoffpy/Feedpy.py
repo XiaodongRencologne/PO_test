@@ -97,7 +97,7 @@ class GaussiBeam():
         else: 
             B = 2*np.pi*np.exp(-2*b*k)/4/b**3/k**3
             B = B*(np.exp(4*b*k)*(8*b**2*k**2-4*b*k+1)-1)
-            print(B)
+            #print(B)
             #Nf = np.sqrt(Z0/B)
             #Nf = 1/k/np.sqrt(B)
             Nf = np.sqrt(4*np.pi/k**2/B)

@@ -27,9 +27,10 @@ def printF(f):
 
 '''testing'''
 def lensPO(face1,face1_n,face1_dS,
-           face2,face2_n,#face2_dS,
-           #face3,
-           Field_in_E,Field_in_H,k,n,device =T.device('cuda')):
+           face2,face2_n,
+           Field_in_E,Field_in_H,
+           k,n,
+           device =T.device('cuda')):
     n0 = 1
     k_n = k*n
     Z = Z0/n
