@@ -1,5 +1,5 @@
 import pyvista as pv
-from Kirchhoffpy import lenspy
+from Kirchhoffpy import lenspy, Aperture_Filter,rim
 from Kirchhoffpy import Feedpy
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
@@ -9,7 +9,7 @@ from Kirchhoffpy.Vopy import CO,dotproduct,vector
 import torch as T
 import h5py
 #### improve the sampling for lens 3, moving the sampling region to gaussian beam center
-from polarizationpy import polar_angle, stoke_param
+from polarizationpy import polar_angle
 c=299792458
 p = pv.Plotter()
 srffolder = 'srf/'
@@ -25,6 +25,8 @@ class sosat:
                  polarization = 'x',
                  AR_file = None, # data of AR coating, Fresnel coefficien given by sqaure root of the coefficents in power.
                  groupname = None, # normally the name is the frequency
+                 filter_file = None,
+                 groupname2 = None,
                  outputfolder = ''
                  ):
         self.freq = freq
@@ -43,6 +45,18 @@ class sosat:
         coord_L1 = coordinate.coord_sys([0,0,-(803.9719951339465-4.34990822154231*10)],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
         coord_L2 = coordinate.coord_sys([0,0,-(227.64396727901004-4.696706712699847*10)],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
         coord_L3 = coordinate.coord_sys([0,0,-(71.77590111674095-2.96556*10)],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
+        
+        L_lens1_Lyot = 1.162050628144469 *10
+        L_Ly_vw      = 22.7114 *10
+        L_Ly_f1      = 2.9400 *10
+        L_f1_f2      = (8.1448 + 0.3548 + 0.3706 + 0.3598 + 1.06 + 0.3)*10
+
+        coord_Lyot = coordinate.coord_sys([0,0,-(803.9719951339465 + L_lens1_Lyot)],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
+        coord_f1 = coordinate.coord_sys([0,0,-(803.9719951339465 + L_lens1_Lyot + L_Ly_f1)],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
+        coord_f2 = coordinate.coord_sys([0,0,-(803.9719951339465 + L_lens1_Lyot + L_Ly_f1 + L_f1_f2 )],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
+        coord_vw = coordinate.coord_sys([0,0,-(803.9719951339465 + L_lens1_Lyot + L_Ly_vw)],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
+
+
 
         coord_feed_offset = coordinate.coord_sys([dx,dy,dz],[np.pi,0,0],axes = 'xyz',ref_coord = coord_ref)
         coord_feed_rotation = coordinate.coord_sys([0,0,0],[0,0,dAz*np.pi/180],axes = 'xyz',ref_coord = coord_feed_offset)
@@ -92,6 +106,32 @@ class sosat:
                                 AR_file = AR_file,
                                 groupname = groupname,
                                 outputfolder = outputfolder)
+
+        self.rim_stop = rim.Elliptical_rim([0,0],210,210)
+        self.rim_f1   = rim.Elliptical_rim([0,0],2.195325876168707E+02,2.195325876168707E+002)
+        self.rim_f2   = rim.Elliptical_rim([0,0],2.498344778918611E+02,2.498344778918611E+02)
+        self.rim_vw   = rim.Elliptical_rim([0,0],2.876618694117068E+002,2.876618694117068E+002)
+
+        self.Lyot = Aperture_Filter.Aperture(coord_Lyot,
+                                             self.rim_stop,
+                                             name = 'Lyot',
+                                             outputfolder = outputfolder)
+        self.Filter1 = Aperture_Filter.Filter(coord_f1,
+                                               self.rim_f1,
+                                               AR_file = filter_file,
+                                               groupname = groupname2,
+                                               name = 'filter1',
+                                               outputfolder = outputfolder)
+        self.Filter2 = Aperture_Filter.Filter(coord_f2,
+                                               self.rim_f2,
+                                               AR_file = filter_file,
+                                               groupname = groupname2,
+                                               name = 'filter2',
+                                               outputfolder = outputfolder)
+        self.VW     = Aperture_Filter.Aperture(coord_vw,
+                                             self.rim_vw,
+                                             name='vw',
+                                             outputfolder = outputfolder)
         
         # 4 define field grids in far-field region or near-field region
         self.center_grd = field_storage.Spherical_grd(coord_sky,
@@ -106,11 +146,13 @@ class sosat:
         self.center_grd.grid.x = self.center_grd.grid.x.ravel()
         self.center_grd.grid.y = self.center_grd.grid.y.ravel()
         self.center_grd.grid.z = self.center_grd.grid.z.ravel()
-        self.field_grid_fname = self.outputfolder + str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+ '_grd.h5'
+        self.field_grid_fname = self.outputfolder + str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+ '_grd_filters.h5'
     def run_po(self,
                L3_N,
                L2_N,
                L1_N,
+               Lyot_N, Filter1_N, Filter2_N,
+               VW_N,
                sampling_type = 'less'):
         L3_N1 = L3_N[0]
         L3_N2 = L3_N[1]
@@ -121,7 +163,7 @@ class sosat:
         # start po analysis
         dx, dy, dz = self.feedpos[0], self.feedpos[1], self.feedpos[2]
         dAx, dAy, dAz = self.feedrot[0], self.feedrot[1], self.feedrot[2]
-
+        '''
         self.L3.PO_analysis([1,L3_N1[0],L3_N1[1],1],
                             [1,L3_N2[0],L3_N2[1],1],
                             self.feed,self.k,
@@ -149,11 +191,36 @@ class sosat:
                             phi_type_f2 = sampling_type ,
                             po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5',
                             Method ='POPO')
+        
 
         self.L1.source(self.center_grd,
                        self.k,
                        far_near = 'far')
+        ''' 
+        self.L1.surf_cur_file = self.L1.outfolder + self.L1.name +'_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5'
+        print(self.L1.surf_cur_file)
+        self.Lyot.get_current(self.L1, self.k,
+                              po1 = Lyot_N[0], po2 = Lyot_N[1],
+                              Phi_type = sampling_type,
+                              po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5')
+        self.Filter1.get_current(self.Lyot,self.k,
+                              po1 = Filter1_N[0], po2 = Filter1_N[1],
+                              Phi_type = sampling_type,
+                              po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5')
+        self.Filter2.get_current(self.Filter1,self.k,
+                              po1 = Filter2_N[0], po2 = Filter2_N[1],
+                              Phi_type = sampling_type,
+                              po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5')
+
+        self.VW.get_current(self.Filter2,self.k,
+                              po1 = VW_N[0], po2 = VW_N[1],
+                              Phi_type = sampling_type,
+                              po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5')
         
+        self.VW.source(self.center_grd,
+                       self.k,
+                       far_near = 'far')
+
         field_storage.save_grd(self.center_grd, self.field_grid_fname)
         #self.plot_beam()
     def plot_beam(self,field_name = None, output_picture_name = 'co_cx_rot_beam.png',cmap = 'jet',plot = True):
@@ -222,58 +289,6 @@ class sosat:
             ax[0].axis('equal')
             plt.savefig(picture_fname2, dpi=300)
             plt.show()
-
-            ###############
-            # plot Stoke parameter beams 1
-            vmax = 0
-            vmin = -40
-            I, Q, U, V = stoke_param.stokes_beams(E_co,E_cx)
-            fig, ax = plt.subplots(2,2, figsize=(12, 4.7*2))
-            fig.suptitle('stoke beams',fontsize = 13)
-            fig.suptitle('r =  '+str(dx)+'mm,'+' Rx Oritentation: ' + str(dAz)+'deg',fontsize = 13)
-            p1 = ax[0,0].pcolor(x,y, 10*np.log10(np.abs(I.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[0,0].axis('equal')
-            ax[0,0].set_title('Intensity beam',fontsize = 15)
-
-            p2 = ax[0,1].pcolor(x,y, 10*np.log10(np.abs(V.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[0,1].set_title('V',fontsize  = 15)
-            ax[0,1].axis('equal')
-
-            p3 = ax[1,0].pcolor(x,y, 10*np.log10(np.abs(Q.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[1,0].axis('equal')
-            ax[1,0].set_title('Q',fontsize = 15)
-
-            p4 = ax[1,1].pcolor(x,y, 10*np.log10(np.abs(U.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[1,1].set_title('U',fontsize  = 15)
-            ax[1,1].axis('equal')
-            cbar = fig.colorbar(p1, ax=ax, orientation='vertical', fraction=0.05, pad=0.1)
-            #plt.savefig(picture_fname1, dpi=200)
-            plt.show()
-
-            # plot Stoke parameter beams new
-            I, Q, U, V = stoke_param.stokes_beams(E_co_new,E_cx_new)
-            fig, ax = plt.subplots(2,2, figsize=(12, 4.7*2))
-            fig.suptitle('stoke beams after rotation',fontsize = 13)
-            p1 = ax[0,0].pcolor(x,y, 10*np.log10(np.abs(I.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[0,0].axis('equal')
-            ax[0,0].set_title('Intensity beam',fontsize = 15)
-
-            p2 = ax[0,1].pcolor(x,y, 10*np.log10(np.abs(V.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[0,1].set_title('V',fontsize  = 15)
-            ax[0,1].axis('equal')
-
-            p3 = ax[1,0].pcolor(x,y, 10*np.log10(np.abs(Q.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[1,0].axis('equal')
-            ax[1,0].set_title('Q',fontsize = 15)
-
-            p4 = ax[1,1].pcolor(x,y, 10*np.log10(np.abs(U.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
-            ax[1,1].set_title('U',fontsize  = 15)
-            ax[1,1].axis('equal')
-            cbar = fig.colorbar(p1, ax=ax, orientation='vertical', fraction=0.05, pad=0.1)
-            #plt.savefig(picture_fname1, dpi=200)
-            plt.show()
-
-            
         return r.x*180/np.pi-dAz
     
     def read_beam(self,field_name = None):

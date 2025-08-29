@@ -6,7 +6,7 @@ import time
 import sys
 
 def update_screen(error, po=10,po_ref = 10,
-                  test = 'po1'
+                  test = 'po1',
                   status = False):
     string = (error and f"{error:.3f}") or "" 
     if status:
@@ -29,7 +29,7 @@ def try_convergence(method,
                     po_fix = 10,
                     test = 'po1'):
     Ref = Accuracy_ref
-    F_ref=method(po_test, po_fix)
+    F_ref=method(po_test)
     loop_count =0
     po_ref = po_test
     Error = None
@@ -40,7 +40,7 @@ def try_convergence(method,
         update_screen('', po,po_fix)
         F_E = method(po)
         Error = np.abs(F_E - F_ref)/np.abs(F_ref)
-        update_screen(Error, po,po_fix)
+        update_screen(Error, po,po_fix,test = test)
         if Error.max() < Ref:
             loop_count+=1
             F_ref = F_E * 1.0
@@ -49,10 +49,10 @@ def try_convergence(method,
                 po_near = int(po_ref/2)
                 po = po_ref - int((po_ref - po_near)/2)
                 ### print the test points
-                update_screen('', po,po_fix)
+                update_screen('', po,po_fix,test = test)
                 F_E = method(po)
                 Error = np.abs(F_E - F_ref)/np.abs(F_ref)
-                update_screen(20*np.log10(Error.max()), po,po_fix)
+                update_screen(20*np.log10(Error.max()), po,po_fix,test = test)
                 sub_loop += 1
                 if Error.max() <= Ref:
                     po_ref = po * 1
@@ -67,32 +67,3 @@ def try_convergence(method,
     update_screen(20*np.log10(Error.max()), po,po_fix,status = True)
     print('Auto-convergence failed, the iteration loop number exceeds the maximum ' + str(max_loops)+'!!!!')
     return po_ref, loop_count, False
-
-
-def autoconvergence(method,
-                    po1=10,po2=10,
-                    target1=11,target2=11,
-                    fuction,
-                    field_accuracy = -80.
-                    Maxpoints = 10000):
-    # points in target surface is fixed or defined by the user. It is better to use uniform sampling.
-    Ref = 10**(field_accuracy/20)
-
-    #1. auto convergence test for po1
-    
-
-
-    #2. auto convergence test for po2
-    for item in [10,20,30,40]:
-        update_screen(item,po2)
-        time.sleep(1)
-    update_screen(po1,po2,True)
-    PO1 = 10
-    for item in [10,20,30,40]:
-        sys.stdout.write(f"\rpo1:{PO1},    po2:{item}")
-        time.sleep(1)
-        sys.stdout.flush()
-    
-
-
-

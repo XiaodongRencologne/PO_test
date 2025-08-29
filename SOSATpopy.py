@@ -165,7 +165,7 @@ class sosat:
         E.y = Ey
         E.z = Ez
 
-        r, theta, phi = self.center_grd.coord_sys._toSpherical(self.center_grd.grid.x,
+        r, theta, phi = self.center_grd.coord_sys.ToSpherical(self.center_grd.grid.x,
                                                                self.center_grd.grid.y,
                                                                self.center_grd.grid.z)
         co,cx,crho = CO(theta,phi)
@@ -229,7 +229,7 @@ class sosat:
         E.y = Ey
         E.z = Ez
 
-        r, theta, phi = self.center_grd.coord_sys._toSpherical(self.center_grd.grid.x,
+        r, theta, phi = self.center_grd.coord_sys.ToSpherical(self.center_grd.grid.x,
                                                                self.center_grd.grid.y,
                                                                self.center_grd.grid.z)
         co,cx,crho = CO(theta,phi)

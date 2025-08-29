@@ -11,17 +11,18 @@ class _global_coord_sys():
         self.mat_l_g=np.eye(3)
         self.mat_r_l=np.eye(3)
         self.mat_l_r=np.eye(3)
-    def Local_to_Ref(self,x,y,z):
+        self.name = 'mechanical_axis.cs'
+    def _toRef_coord(self,x,y,z):
         return x,y,z
-    def Ref_to_Local(self,x,y,z):
+    def _toLocal_coord(self,x,y,z):
         return x,y,z
-    def Local_to_Global(self,x,y,z):
+    def _toGlobal_coord(self,x,y,z):
         return x,y,z
-    def Global_to_Local(self,x,y,z):
+    def Global_to_local(self,x,y,z):
         return x,y,z
-    def ToSpherical(self,x,y,z):
+    def _toSpherical(self,x,y,z):
         return cartesian2spherical(x,y,z)  
-    def ToCylinder(self,x,y,z):
+    def _toCylinder(self,x,y,z):
         return cartesian2cylinder(x,y,z)
     
 global_coord=_global_coord_sys()
@@ -38,7 +39,8 @@ class coord_sys():
                  origin,
                  angle,
                  axes='xyz',
-                 ref_coord=global_coord):
+                 ref_coord=global_coord,
+                 name='coor_sys'):
         self.origin=np.array(origin).reshape(3,1)
 
         self.mat_r_l=euler2mat(angle[0],angle[1],angle[2],axes=axes)
@@ -49,53 +51,45 @@ class coord_sys():
         # origin in global coordinate system.
         self.origin_g=ref_coord.origin_g+np.matmul(ref_coord.mat_l_g,self.origin)
 
-    def Local_to_Ref(self,x,y,z,Vector=False):
+        self.name = name
+        self.ref_name = ref_coord.name
+
+    def _toRef_coord(self,x,y,z):
         '''
         convert coordinates from local to reference system
         '''
         xyz=np.append([x,y],[z],axis=0)
-        xyz=np.matmul(self.mat_l_r,xyz)
-        if not Vector:
-            xyz+=self.origin
+        xyz=np.matmul(self.mat_l_r,xyz)+self.origin
         return xyz[0,:], xyz[1,:], xyz[2,:]
     
-    def Ref_to_Local(self,x,y,z,Vector=False):
+    def _toLocal_coord(self,x,y,z):
         '''
         coordinates from reference coord to local coord, 
         commonly this is function is useless.
         '''
         xyz=np.append([x,y],[z],axis=0)
-        if not Vector:
-            xyz=xyz-self.origin
+        xyz=xyz-self.origin
         xyz=np.matmul(self.mat_r_l,xyz)
         return xyz[0,:], xyz[1,:], xyz[2,:]
     
-    def Local_to_Global(self,x,y,z,Vector=False):
+    def _toGlobal_coord(self,x,y,z):
         '''
         from local to global.
         '''
         xyz=np.append([x,y],[z],axis=0)
-        xyz=np.matmul(self.mat_l_g,xyz)
-        if not Vector:
-            xyz = xyz + self.origin_g
+        xyz=np.matmul(self.mat_l_g,xyz)+self.origin_g
         return xyz[0,:], xyz[1,:], xyz[2,:]
 
-    def Global_to_Local(self,x,y,z,Vector=False):
+    def Global_to_local(self,x,y,z):
         xyz=np.append([x,y],[z],axis=0)
-        if not Vector:
-            xyz=xyz-self.origin_g
+        xyz=xyz-self.origin_g
         xyz=np.matmul(self.mat_g_l,xyz)
         return xyz[0,:], xyz[1,:], xyz[2,:]
 
-    def ToSpherical(self,x,y,z):
+    def _toSpherical(self,x,y,z):
         r, theta, phi = cartesian2spherical(x,y,z)
         return r, theta, phi
     
-    def ToCylinder(self,x,y,z):
+    def _toCylinder(self,x,y,z):
         pho, phi, z = cartesian2cylinder(x,y,z)
         return pho, phi, z
-    
-    def To_coord_sys(self,coord_sys,x,y,z,Vector=False):
-        x,y,z = self.Local_to_Global(x,y,z,Vector=Vector)
-        x,y,z = coord_sys.Global_to_Local(x,y,z,Vector=Vector)
-        return x,y,z

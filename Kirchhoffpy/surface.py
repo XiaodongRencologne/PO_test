@@ -214,3 +214,7 @@ class Symetrical_surf():
         rho, z = R_lens_surf(surf_file)
         #self._func1d = interpolate.interp1d(rho, z,kind='cubic')
         self.surf_fnc = read_rsf(surf_file, units = units)
+    
+    def surface(self,x,y):
+        z,n = self.surf_fnc(x,y)
+        return z, n

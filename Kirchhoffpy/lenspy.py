@@ -19,12 +19,13 @@ from .coordinate_operations import Transform_local2global as local2global;
 from .coordinate_operations import Transform_global2local as global2local;
 from .field_storage import Spherical_grd
 
-from .LensPO import Fresnel_coeffi,poyntingVector,Z0,lensPO,lensPO_AR
+from .LensPO import Z0,lensPO,lensPO_AR
 from .POpyGPU import PO_far_GPU2 as PO_far_GPU
 from .POpyGPU import epsilon,mu
 from .POpyGPU import PO_GPU_2 as PO_GPU
 
 from .Vopy import vector,abs_v,scalarproduct, CO
+from .RWcur import saveh5_surf,read_cur
 
 import pyvista as pv
 pv.set_jupyter_backend('trame')#('static')#
@@ -35,6 +36,8 @@ def read_rsf(file,units= 'cm'):
     factor= 1.0
     if units == 'cm':
         factor = 10
+    elif units == 'mm':
+        factpr = 1.0
     elif units == 'm':
         factor = 1000
     data = np.genfromtxt(file, skip_header = 2)
@@ -82,51 +85,6 @@ def read_rsf2(file,units= 'cm'):
         n.z=n.z/n.N
         return z, n
     return srf
-
-## save the lens surface information into H5 files, includeing surface, normal, field E and H
-def saveh5_surf(file_h5,face,face_n, E, H, T, R,name = 'face'):
-    group = file_h5.create_group(name)
-    group.create_dataset('x', data = face.x)
-    group.create_dataset('y', data = face.y)
-    group.create_dataset('z', data = face.z)
-    group.create_dataset('w', data = face.w)
-    group.create_dataset('nx', data = face_n.x)
-    group.create_dataset('ny', data = face_n.y)
-    group.create_dataset('nz', data = face_n.z)
-    group.create_dataset('N', data = face_n.N)
-    group.create_dataset('Ex', data = E.x)
-    group.create_dataset('Ey', data = E.y)
-    group.create_dataset('Ez', data = E.z)
-    group.create_dataset('Hx', data = H.x)
-    group.create_dataset('Hy', data = H.y)
-    group.create_dataset('Hz', data = H.z)
-    group.create_dataset('T', data = T)
-    group.create_dataset('R', data = R)
-    #group.create_dataset('poynting', data = poynting)
-## save the lens surface information into H5 files, includeing surface, normal, field E and H
-
-def read_cur(filename):
-    face = Coord()
-    face_n = Coord()
-    H = vector()
-    E = vector()
-    print(filename)
-    with h5py.File(filename,'r') as f:
-        face.x = f['f2/x'][:].ravel()
-        face.y = f['f2/y'][:].ravel()
-        face.z = f['f2/z'][:].ravel()
-        face.w = f['f2/w'][:].ravel()
-        face_n.x = f['f2/nx'][:].ravel()
-        face_n.y = f['f2/ny'][:].ravel()
-        face_n.z = f['f2/nz'][:].ravel()
-        face_n.N = f['f2/N'][:].ravel()
-        H.x = f['f2/Hx'][:].ravel()
-        H.y = f['f2/Hy'][:].ravel()
-        H.z = f['f2/Hz'][:].ravel()
-        E.x = f['f2/Ex'][:].ravel()
-        E.y = f['f2/Ey'][:].ravel()
-        E.z = f['f2/Ez'][:].ravel()
-    return face, face_n, H, E
     
 class simple_Lens():
     def __init__(self,
@@ -224,12 +182,12 @@ class simple_Lens():
                                           Sampling_type = sampling_type_f1,
                                           phi_type=phi_type_f1,x0 = x0,y0 = y0)
         
-        #f1_n =scalarproduct(1,f1_n)
+        f1_n =scalarproduct(-1,f1_n)
         
         f2,f2_n = self.sampling(N2,self.surf_fnc2,self.r2,
                                          Sampling_type = sampling_type_f2,
                                          phi_type=phi_type_f2,x0 = x0,y0 = y0)
-        f2_n =scalarproduct(-1,f2_n)
+        #f2_n =scalarproduct(-1,f2_n)
         self.f2 = copy.copy(f2)
         self.f2_n = copy.copy(f2_n)
         f2 = local2global([np.pi,0,0], [0,0,self.t],f2)
@@ -237,8 +195,8 @@ class simple_Lens():
         # convert two surfaces into target coordinates
         f1_p = copy.copy(f1)
         f1_p_n = copy.copy(f1_n)
-        f1_p.x,f1_p.y,f1_p.z = self.coord_sys._toGlobal_coord(f1_p.x,f1_p.y,f1_p.z)
-        f1_p.x,f1_p.y,f1_p.z = source.coord_sys.Global_to_local(f1_p.x,f1_p.y,f1_p.z)
+        f1_p.x,f1_p.y,f1_p.z = self.coord_sys.Local_to_Global(f1_p.x,f1_p.y,f1_p.z)
+        f1_p.x,f1_p.y,f1_p.z = source.coord_sys.Global_to_Local(f1_p.x,f1_p.y,f1_p.z)
         #f1_p_n.x,f1_p_n.y,f1_p_n.z = self.coord_sys._toGlobal_coord(f1_p_n.x,f1_p_n.y,f1_p_n.z)
         #f1_p_n.x,f1_p_n.y,f1_p_n.z = feed.coord_sys.Global_to_local(f1_p_n.x,f1_p_n.y,f1_p_n.z)
         data = np.matmul(np.matmul(source.coord_sys.mat_g_l,self.coord_sys.mat_l_g),
@@ -251,7 +209,8 @@ class simple_Lens():
         '''get field on surface 1 !!!!'''
         E_in, H_in,= source.source(f1_p,k)
         #print(np.matmul(self.coord_sys.mat_g_l,feed.coord_sys.mat_l_g))
- 
+
+        '''convert the field to the scatter local coordinate system'''
         E_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,source.coord_sys.mat_l_g))
         H_in.tocoordsys(matrix = np.matmul(self.coord_sys.mat_g_l,source.coord_sys.mat_l_g))
         self.f_E_in = E_in
@@ -291,6 +250,10 @@ class simple_Lens():
         """
         print('Transform f1')
         print('poynting value max!')
+        p_n = poyntingVector(self.f1_E_t,self.f1_H_t)    
+        """
+        print('Transform f1')
+        print('poynting value max!')
         p_n = poyntingVector(self.f1_E_t,self.f1_H_t)
         print(abs_v(p_n).max())
         #print((abs_v(p_n)*f1.w).sum())
@@ -298,6 +261,15 @@ class simple_Lens():
         print('f2')
         print('poynting value max!')
         p_n = poyntingVector(self.f2_E,self.f2_H)
+        print(abs_v(p_n).max())
+        #print((abs_v(p_n)*f2.w).sum())
+        print(k**2*(abs_v(p_n)*f2.w).sum())
+        print('f2 transmission')
+        print('poynting value max!')
+        p_n = poyntingVector(self.f2_E_t,self.f2_H_t)
+        #print((abs_v(p_n)*f2.w).sum())
+        print(k**2*(abs_v(p_n)*f2.w).sum())
+        """
         print(abs_v(p_n).max())
         #print((abs_v(p_n)*f2.w).sum())
         print(k**2*(abs_v(p_n)*f2.w).sum())
@@ -320,12 +292,16 @@ class simple_Lens():
     def source(self,
                target,k,
                far_near = 'near',
-               device = T.device('cuda')):
+               device = T.device('cuda'),
+               cur_file = None):
         # read the source on surface face2;
-        face2, face2_n, H2, E2= read_cur(self.surf_cur_file)
+        if cur_file == None:
+            face2, face2_n, H2, E2= read_cur(self.surf_cur_file)
+        else:
+            face2, face2_n, H2, E2= read_cur(cur_file)        
         if isinstance(target,Spherical_grd):
-            face2.x,face2.y,face2.z = self.coord_sys._toGlobal_coord(face2.x,face2.y,face2.z)
-            face2.x,face2.y,face2.z = target.coord_sys.Global_to_local(face2.x,face2.y,face2.z)
+            face2.x,face2.y,face2.z = self.coord_sys.Local_to_Global(face2.x,face2.y,face2.z)
+            face2.x,face2.y,face2.z = target.coord_sys.Global_to_Local(face2.x,face2.y,face2.z)
 
             data = np.matmul(np.matmul(target.coord_sys.mat_g_l,self.coord_sys.mat_l_g),
                          np.array([face2_n.x,face2_n.y,face2_n.z]))

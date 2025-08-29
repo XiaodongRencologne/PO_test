@@ -253,3 +253,9 @@ class Elliptical_GaussianBeam():
                     E_r  = 0#dotproduct(E,crho)
                 return E, H , E_co , E_cx
         self.beam = beam
+
+
+
+class Tabulate_Feed():
+    def __init__():
+        pass
