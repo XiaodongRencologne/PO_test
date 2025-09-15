@@ -26,6 +26,7 @@ from .POpyGPU import PO_GPU_2 as PO_GPU
 
 from .Vopy import vector,abs_v,scalarproduct, CO
 from .RWcur import saveh5_surf,read_cur
+from .FresnelCoeff import poyntingVector
 
 import pyvista as pv
 pv.set_jupyter_backend('trame')#('static')#
@@ -37,7 +38,7 @@ def read_rsf(file,units= 'cm'):
     if units == 'cm':
         factor = 10
     elif units == 'mm':
-        factpr = 1.0
+        factor = 1.0
     elif units == 'm':
         factor = 1000
     data = np.genfromtxt(file, skip_header = 2)
@@ -92,6 +93,7 @@ class simple_Lens():
                  surface_file1, surface_file2,
                  widget,
                  coord_sys,
+                 units = 'cm',
                  name = 'simplelens',
                  AR_file = None,
                  groupname = None,
@@ -106,8 +108,8 @@ class simple_Lens():
         self.n = n # refractive index of the lens
         self.t = thickness # tickness of the lens in center.
         self.diameter = D # diameters
-        self.surf_fnc1 = read_rsf(surface_file1,units= 'cm')
-        self.surf_fnc2 = read_rsf(surface_file2,units= 'cm')
+        self.surf_fnc1 = read_rsf(surface_file1,units= units)
+        self.surf_fnc2 = read_rsf(surface_file2,units= units)
         self.coord_sys = coord_sys
 
         # define surface for sampling or for 3Dview

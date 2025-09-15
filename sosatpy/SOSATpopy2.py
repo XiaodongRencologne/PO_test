@@ -1,15 +1,15 @@
 import pyvista as pv
-from Kirchhoffpy import lenspy
-from Kirchhoffpy import Feedpy
+from ..Kirchhoffpy import lenspy
+from ..Kirchhoffpy import Feedpy
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import numpy as np
-from Kirchhoffpy import coordinate,field_storage
-from Kirchhoffpy.Vopy import CO,dotproduct,vector
+from ..Kirchhoffpy import coordinate,field_storage
+from ..Kirchhoffpy.Vopy import CO,dotproduct,vector
 import torch as T
 import h5py
-
-from polarizationpy import polar_angle
+#### improve the sampling for lens 3, moving the sampling region to gaussian beam center
+from ..polarizationpy import polar_angle, stoke_param
 c=299792458
 p = pv.Plotter()
 srffolder = 'srf/'
@@ -35,6 +35,8 @@ class sosat:
         self.feedrot = feedrot
         ## 1.  define coordinate system
         dx, dy, dz = feedpos[0], feedpos[1], feedpos[2]
+        self.dx = dx
+        self.dy = dy
         dAx, dAy, dAz = feedrot[0], feedrot[1], feedrot[2]
         eff_focal_length = 569.56 #mm
         coord_ref = coordinate.coord_sys([0,0,0],[0,0,0],axes = 'xyz')
@@ -119,6 +121,7 @@ class sosat:
         # start po analysis
         dx, dy, dz = self.feedpos[0], self.feedpos[1], self.feedpos[2]
         dAx, dAy, dAz = self.feedrot[0], self.feedrot[1], self.feedrot[2]
+
         self.L3.PO_analysis([1,L3_N1[0],L3_N1[1],1],
                             [1,L3_N2[0],L3_N2[1],1],
                             self.feed,self.k,
@@ -127,7 +130,7 @@ class sosat:
                             sampling_type_f2='polar',
                             phi_type_f2 = sampling_type ,
                             po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5',
-                            Method ='POPO')
+                            Method ='POPO',x0=self.dx,y0=self.dy)
         self.L2.PO_analysis([1,L2_N1[0],L2_N1[1],1],
                             [1,L2_N2[0],L2_N2[1],1],
                             self.L3,self.k,
@@ -136,7 +139,7 @@ class sosat:
                             sampling_type_f2='polar',
                             phi_type_f2 = sampling_type ,
                             po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5',
-                            Method ='POPO')
+                            Method ='POPO',x0=self.dx,y0=self.dy)
         self.L1.PO_analysis([1,L1_N1[0],L1_N1[1],1],
                             [1,L1_N2[0],L1_N2[1],1],
                             self.L2,self.k,
@@ -146,6 +149,7 @@ class sosat:
                             phi_type_f2 = sampling_type ,
                             po_name = '_po_cur_'+str(dx)+'_'+str(dy)+'_'+str(dz)+'mm_polar_'+str(dAz)+'deg.h5',
                             Method ='POPO')
+
         self.L1.source(self.center_grd,
                        self.k,
                        far_near = 'far')
@@ -206,18 +210,6 @@ class sosat:
             plt.savefig(picture_fname1, dpi=200)
             plt.show()
 
-            fig, ax = plt.subplots(1,2, figsize=(12, 4.7))
-            fig.suptitle('r =  '+str(dx)+'mm,'+' Rx Oritentation: ' + str(dAz)+'deg',fontsize = 13)
-            p1 = ax[0].pcolor(x,y, np.angle(E_co.reshape(Ny,Nx)),cmap = cmap)
-            ax[0].axis('equal')
-            ax[0].set_title('co-polar beam',fontsize = 15)
-            p2 = ax[1].pcolor(x,y, np.angle(E_cx.reshape(Ny,Nx)),cmap = cmap)
-            ax[1].set_title('cx-polar beam',fontsize  = 15)
-            ax[1].axis('equal')
-            cbar = fig.colorbar(p1, ax=ax, orientation='vertical', fraction=0.05, pad=0.1)
-            plt.savefig(picture_fname1, dpi=200)
-            plt.show()
-
             vmax1 = np.abs(E_co_new).max()
             vmax2 = np.abs(E_cx_new).max()
             #vmax = np.log10(max(vmax1, vmax2))*20
@@ -230,6 +222,58 @@ class sosat:
             ax[0].axis('equal')
             plt.savefig(picture_fname2, dpi=300)
             plt.show()
+
+            ###############
+            # plot Stoke parameter beams 1
+            vmax = 0
+            vmin = -40
+            I, Q, U, V = stoke_param.stokes_beams(E_co,E_cx)
+            fig, ax = plt.subplots(2,2, figsize=(12, 4.7*2))
+            fig.suptitle('stoke beams',fontsize = 13)
+            fig.suptitle('r =  '+str(dx)+'mm,'+' Rx Oritentation: ' + str(dAz)+'deg',fontsize = 13)
+            p1 = ax[0,0].pcolor(x,y, 10*np.log10(np.abs(I.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[0,0].axis('equal')
+            ax[0,0].set_title('Intensity beam',fontsize = 15)
+
+            p2 = ax[0,1].pcolor(x,y, 10*np.log10(np.abs(V.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[0,1].set_title('V',fontsize  = 15)
+            ax[0,1].axis('equal')
+
+            p3 = ax[1,0].pcolor(x,y, 10*np.log10(np.abs(Q.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[1,0].axis('equal')
+            ax[1,0].set_title('Q',fontsize = 15)
+
+            p4 = ax[1,1].pcolor(x,y, 10*np.log10(np.abs(U.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[1,1].set_title('U',fontsize  = 15)
+            ax[1,1].axis('equal')
+            cbar = fig.colorbar(p1, ax=ax, orientation='vertical', fraction=0.05, pad=0.1)
+            #plt.savefig(picture_fname1, dpi=200)
+            plt.show()
+
+            # plot Stoke parameter beams new
+            I, Q, U, V = stoke_param.stokes_beams(E_co_new,E_cx_new)
+            fig, ax = plt.subplots(2,2, figsize=(12, 4.7*2))
+            fig.suptitle('stoke beams after rotation',fontsize = 13)
+            p1 = ax[0,0].pcolor(x,y, 10*np.log10(np.abs(I.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[0,0].axis('equal')
+            ax[0,0].set_title('Intensity beam',fontsize = 15)
+
+            p2 = ax[0,1].pcolor(x,y, 10*np.log10(np.abs(V.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[0,1].set_title('V',fontsize  = 15)
+            ax[0,1].axis('equal')
+
+            p3 = ax[1,0].pcolor(x,y, 10*np.log10(np.abs(Q.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[1,0].axis('equal')
+            ax[1,0].set_title('Q',fontsize = 15)
+
+            p4 = ax[1,1].pcolor(x,y, 10*np.log10(np.abs(U.reshape(Ny,Nx))),vmax = vmax,vmin= vmin,cmap = cmap)
+            ax[1,1].set_title('U',fontsize  = 15)
+            ax[1,1].axis('equal')
+            cbar = fig.colorbar(p1, ax=ax, orientation='vertical', fraction=0.05, pad=0.1)
+            #plt.savefig(picture_fname1, dpi=200)
+            plt.show()
+
+            
         return r.x*180/np.pi-dAz
     
     def read_beam(self,field_name = None):

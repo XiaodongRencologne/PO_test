@@ -1,15 +1,15 @@
 import pyvista as pv
-from Kirchhoffpy import lenspy, Aperture_Filter,rim
-from Kirchhoffpy import Feedpy
+from ..Kirchhoffpy import lenspy, Aperture_Filter,rim
+from ..Kirchhoffpy import Feedpy
 import matplotlib.pyplot as plt
 import matplotlib.tri as tri
 import numpy as np
-from Kirchhoffpy import coordinate,field_storage
-from Kirchhoffpy.Vopy import CO,dotproduct,vector
+from ..Kirchhoffpy import coordinate,field_storage
+from ..Kirchhoffpy.Vopy import CO,dotproduct,vector
 import torch as T
 import h5py
 #### improve the sampling for lens 3, moving the sampling region to gaussian beam center
-from polarizationpy import polar_angle
+from ..polarizationpy import polar_angle
 c=299792458
 p = pv.Plotter()
 srffolder = 'srf/'

@@ -14,7 +14,7 @@ c=299792458
 p = pv.Plotter()
 srffolder = 'srf/'
 
-class sosat:
+class HDPE_2lens():
     def __init__(self, 
                  freq,
                  taper_A = 10.1161095,
